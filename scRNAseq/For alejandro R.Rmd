@@ -1,0 +1,218 @@
+---
+title: "Dennery lab scRNAseq"
+author: "Joselynn"
+date: "7/14/2020"
+output: html_document
+---
+  
+```{r}
+library(Seurat)
+library(patchwork)
+library(ggplot2)
+library(dplyr)
+library(future)
+set.seed(61)
+
+plan("multiprocess", workers = 4)
+#plan()
+options(future.globals.maxSize = 4000 * 1024^2)
+```
+
+
+```{r}
+#must make rference to identify gene names on OSCAR before hand
+#raw reads from Genewiz were downloaded on OSCAR
+#cellranger command were used to filter the data and assign gene names to each gene 
+#this is an overnight run!
+#as well as transcription and number of cells 
+
+#setwd('/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq')
+
+#load data into Rstudio
+AirD7.data <- Read10X(data.dir ="./AirD7out/filtered_feature_bc_matrix/")
+O2D7.data <- Read10X(data.dir ="./O2D7out/filtered_feature_bc_matrix/")
+SD7.data <- Read10X(data.dir ="./SD7out/filtered_feature_bc_matrix/")
+
+#changing the data into a Seurat readable Matrix
+#ignore cells with less than 200 genes as default
+#at least 3 cells per cluster maybe
+AirD7.data <- CreateSeuratObject(counts = AirD7.data,  project = "AirD7",min.cells = 3, min.features = 200)
+O2D7.data <- CreateSeuratObject(counts = O2D7.data,  project = "O2D7",min.cells = 3, min.features = 200)
+SD7.data <- CreateSeuratObject(counts = SD7.data,  project = "SD7",min.cells = 3, min.features = 200)
+
+all_data <- merge(x = AirD7.data, y = c(O2D7.data, SD7.data), add.cell.ids = c("AirD7", "O2D7", "SD7"), project = 'dennery')
+
+all_data[["percent.mt"]] <- PercentageFeatureSet(all_data, pattern = "^mt-")
+```
+
+```{r}
+
+VlnPlot(all_data, features = "nFeature_RNA")
+VlnPlot(all_data, features = "nCount_RNA")
+VlnPlot(all_data, features="percent.mt")
+
+FeatureScatter(all_data, feature1 = "nCount_RNA", feature2 = "percent.mt")
+FeatureScatter(all_data, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+
+#one QC metric to look at is the number of unique genes detected per cell.
+#low-quality/empty droplets will have very few genes or features.
+#cell doublets or multiplets will have very high count.
+#it looks like there's a cluster of cells in AirD7 and O2D7 where the features and counts are both low -- e.g., there's cells where there's only a few lowly-expressed genes.
+#7000 seems like a reasonable upper bound on the features, but i'm not sure about the lower bound.
+#https://www.bioinformatics.babraham.ac.uk/training/10XRNASeq/seurat_workflow.html
+qc.metrics <- dplyr::as_tibble(all_data[[c("nCount_RNA","nFeature_RNA","percent.mt")]],rownames="Cell.Barcode") 
+qc.metrics
+
+qc.metrics %>%
+  arrange(percent.mt) %>%
+  ggplot(aes(nCount_RNA,nFeature_RNA,colour=percent.mt)) + 
+  geom_point() + 
+  scale_color_gradientn(colors=c("black","blue","green2","red","yellow")) +
+  ggtitle("QC metrics") +
+  geom_hline(yintercept = 700) +
+  geom_hline(yintercept = 8000) 
+```
+
+
+```{r}
+#filter based on the nFeature plots
+#using a 5% mtDNA cutoff... as per https://www.biorxiv.org/content/10.1101/2020.02.20.958793v1.full.pdf
+all_data_sub <- subset(all_data, subset = nFeature_RNA > 700 & nFeature_RNA < 8000 & percent.mt < 5)
+
+all_data #19649 features across 5571 samples
+all_data_sub #19649 features across 3908 samples
+
+#FeatureScatter(all_data, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+#FeatureScatter(all_data_sub, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+```
+
+
+```{r}
+# From Augusts notebook in woodsc/notebooks/_book/integration.html:
+
+#I decided to use SCTransform (Hafemeister and Satija 2019) instead of the typical NormalizeData, ScaleData, and FindVariableFeatures as SCTransform is based on a regularized negative binomial model that is essentially an analogue of DESeq2 for single cell data. The most compelling figure from the paper was that of where the downsampled UMAP figure was the same as the regular UMAP figure for the sctransformed paper, but not for the typical workflow. (todo: investigate if this is true for our data as well)
+
+#batch effects? 
+
+#We transform, then use the FindIntegrationAnchors function (as in this vignette) to integrate two datasets together with IntegrateData.
+
+#Additional links:
+
+#    Integration with SCTransform vignette
+#    SCTransform vignette
+
+```
+
+```{r}
+#SCTramsfpr, steps -- skipping for now. 
+
+#all_data[["percent.mt"]] <- PercentageFeatureSet(all_data, pattern = "^mt-")
+#https://github.com/ChristophH/sctransform/issues/25 for explanation of why i'm not worried about 'iteration limit reached' warning messages.
+all_data.list <- SplitObject(all_data_sub, split.by="orig.ident")
+
+#sctransform
+all_data.list <- lapply(all_data.list, function(x) {x <- SCTransform(x,verbose=FALSE)})
+```
+
+```{r}
+#all the integration steps
+all_data.features <- SelectIntegrationFeatures(object.list=all_data.list,nfeatures=3000)
+
+all_data.list <- PrepSCTIntegration(object.list=all_data.list, anchor.features=all_data.features, verbose=FALSE)
+
+all_data.int.anchors <- FindIntegrationAnchors(all_data.list, normalization.method="SCT", anchor.features=all_data.features, verbose=FALSE)
+
+all_data.combined <- IntegrateData(anchorset=all_data.int.anchors, normalization.method="SCT", verbose=FALSE)
+
+DefaultAssay(all_data.combined) <- "integrated"
+```
+
+```{r}
+all_data.combined <- RunPCA(all_data.combined, features = VariableFeatures(object = all_data.combined))
+
+#print(all_data.combined[["pca"]], dims = 1:5, nfeatures = 5)
+#VizDimLoadings(all_data.combined, dims = 1:2, reduction = "pca")
+```
+```{r}
+DimPlot(all_data.combined, reduction = "pca")
+DimHeatmap(all_data.combined, dims = 1:15, cells = 500, balanced = TRUE)
+ElbowPlot(all_data.combined, ndims=50)
+```
+
+
+```{r} 
+# not run yet
+all_data.combined <- FindNeighbors(all_data.combined, dims = 1:50)
+all_data.combined <- FindClusters(all_data.combined, resolution = 2)
+all_data.combined <- RunUMAP(all_data.combined, dims=1:50)
+#all_data.combined <- RunTSNE(all_data.combined, dims=1:50, tsne.method = "FIt-SNE", nthreads=4, max_iter=2000, seed.use=35)  Could not find the following programs: fast_tsne
+all_data.combined <- RunTSNE(all_data.combined, dims=1:50, nthreads=4, max_iter=2000, seed.use=35) 
+DimPlot(all_data.combined, reduction="tsne")
+```
+
+
+```{r}
+#library(Seurat)
+#library(patchwork) 
+#Following https://satijalab.org/seurat/v3.1/mca.html vignette...
+
+mca.matrix <- readRDS(file = "./MCA/MCA_merged_mat.rds")
+mca.metadata <- read.csv("./MCA/MCA_All-batch-removed-assignments.csv")
+mca.annotations <- read.csv("./MCA/MCA_CellAssignments.csv",row.names = 1)
+
+mca.annotations.lung <- mca.annotations %>% dplyr::filter(Tissue == 'Lung')
+mca.metadata.lung <- mca.metadata %>% dplyr::filter(Tissue == 'Lung')
+
+rownames(mca.annotations.lung) <- mca.annotations.lung$Cell.name
+rownames(mca.metadata.lung) <- mca.metadata.lung$Cell.name
+
+mca.metadata.annotations <- dplyr::inner_join(mca.metadata.lung, mca.annotations.lung, by = "Cell.name")
+mca.metadata.annotations <- mca.metadata.annotations %>% select(Cell.name, ClusterID.x, Tissue.x, Batch.x, Cell.Barcode.x, Annotation)
+colnames(mca.metadata.annotations) <- c('Cell.name', 'ClusterID', 'Tissue', 'Batch', 'Cell.Barcode', 'Annotation')
+rownames(mca.metadata.annotations) <- mca.metadata.annotations$Cell.name
+
+mca.metadata.annotations <- mca.metadata.annotations %>% select(-Cell.name)
+
+mca.matrix.lung <- mca.matrix[,grepl("^Lung_", colnames(mca.matrix))]
+
+```
+
+
+```{r}
+mca <- CreateSeuratObject(counts = mca.matrix.lung, meta.data = mca.metadata.annotations, project = "MouseCellAtlas")
+# Only keep annotated cells
+mca <- SCTransform(mca)
+# Leaves us with 242k cells
+```
+
+```{r}
+
+all_data.list$mca <- mca
+atlas.features <- SelectIntegrationFeatures(all_data.list,nfeatures=3000) #might need to tweak this 
+atlas.anchors <- FindTransferAnchors(reference=mca, query=all_data.combined, normalization.method="SCT", npcs=82, dims=1:50, features=atlas.features,verbose=FALSE)
+
+```
+
+```{r}
+predictions <- TransferData(anchorset=atlas.anchors, refdata=mca$Annotation, dims=1:50)
+all_data.combined <- AddMetaData(all_data.combined, metadata=predictions)
+all_data.combined$predicted_clusters <- sapply(sapply(all_data.combined$predicted.id, function(x) strsplit(x, " - ")), `[`, 1)
+
+#saveRDS(all_data.combined, file=file.path("./all_data_combined.rds"))
+#saveRDS(mca, file=file.path("./mca_sctransform.rds"))
+
+```
+```{r}
+p1 <- DimPlot(all_data.combined, reduction="tsne", group.by = "predicted_clusters") 
+p1 <- LabelClusters(p1, id="predicted_clusters", repel=TRUE)
+p1 + NoLegend()#might need to make the plot window larger to see this properly...
+```
+
+
+```{r}
+
+
+```
+
+
+
