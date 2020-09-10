@@ -20,7 +20,8 @@ set.seed(61)
 options(future.globals.maxSize = 4000 * 1024^2)
 setwd('/Users/jwalla12/Repositories/dennery_scrna/scRNAseq')
 #source('/Users/jwalla12/Repositories/FIt-SNE/fast_tsne.R', chdir=T)
-
+```
+```{r}
 # Load data}
 
 # Read 10X
@@ -188,21 +189,26 @@ qc.metrics %>%
 
 #tabula muris - skip the tabula annotations for now.
 ```{r}
-load("tabula_muris/R_objects/droplet_Lung_seurat_tiss.Robj", verbose=TRUE)
+#load("tabula_muris/R_objects/droplet_Lung_seurat_tiss.Robj", verbose=TRUE)
 
-tiss_update <- UpdateSeuratObject(tiss)
+#tiss_update <- UpdateSeuratObject(tiss)
 
-tiss_sc <- SCTransform(tiss_update)
+#tiss_sc <- SCTransform(tiss_update)
 
-all_data.list$tiss <- tiss_sc
-tabula.features <- SelectIntegrationFeatures(all_data.list) #might need to tweak this 
-tabula.anchors <- FindTransferAnchors(reference=tiss_sc, query=all_data.combined, normalization.method="SCT", npcs=82, dims=1:50, features=tabula.features, verbose=FALSE)
+#all_data.list$tiss <- tiss_sc
+#tabula.features <- SelectIntegrationFeatures(all_data.list) #might need to tweak this 
+#tabula.anchors <- FindTransferAnchors(reference=tiss_sc, query=all_data.combined, normalization.method="SCT", npcs=82, dims=1:50, features=tabula.features, verbose=FALSE)
 
-tabula.predictions <- TransferData(anchorset=tabula.anchors, refdata=tiss_sc$cell_ontology_class, dims=1:50)
-all_data.combined <- AddMetaData(all_data.combined, metadata=tabula.predictions)
-all_data.combined$tabula_predicted_clusters <- sapply(sapply(all_data.combined$predicted.id, function(x) strsplit(x, " - ")), `[`, 1)
+#tabula.predictions <- TransferData(anchorset=tabula.anchors, refdata=tiss_sc$cell_ontology_class, dims=1:50)
+#all_data.combined <- AddMetaData(all_data.combined, metadata=tabula.predictions)
+#all_data.combined$tabula_predicted_clusters <- sapply(sapply(all_data.combined$predicted.id, function(x) strsplit(x, " - ")), `[`, 1)
 
 ```
+
+```{r}
+all_data.combined$orig.ident <- factor( x = all_data.combined$orig.ident, levels = c("AirD7", "O2D7", "AirD60", "O2D60"))
+```
+
 
 ```{r}
 p1 <- DimPlot(all_data.combined, reduction="tsne", group.by = "atlas_predicted_clusters") + NoLegend()
@@ -216,13 +222,20 @@ wrap_plots(list(p1,p2), ncol = 2)
 
 ```{r}
 p3 <- DimPlot(all_data.combined, reduction="tsne", group.by = "atlas_predicted_clusters", split.by = "orig.ident") 
-p3 <- LabelClusters(p3, id="atlas_predicted_clusters", repel=TRUE)
-
+#p3 <- LabelClusters(p3, id="atlas_predicted_clusters", repel=TRUE)
 ```
 
 ```{r}
 p4 <- DimPlot(all_data.combined, reduction="tsne", group.by = "seurat_clusters", split.by = "orig.ident") 
-p4 <- LabelClusters(p4, id="seurat_clusters", repel=TRUE)
+#p4 <- LabelClusters(p4, id="seurat_clusters", repel=TRUE)
+```
+
+```{r}
+p3
+```
+
+```{r}
+p4
 ```
 
 
@@ -279,7 +292,7 @@ wrapped <- wrap_plots(clust_plot, conc_plot, ncol = 2, guides = "collect")
 ```
 
 ```{r}
-table(all_data.combined@meta.data %>% group_by(orig.ident) %>% table(seurat_clusters)
+table(all_data.combined@meta.data) %>% group_by(orig.ident) %>% table(seurat_clusters)
 ```
 
 
@@ -298,8 +311,10 @@ table(all_data.combined@meta.data %>% group_by(orig.ident) %>% table(seurat_clus
 all_data.combined_meta.data <- tibble(all_data.combined@meta.data) 
 
 counts_per_cluster_and_ident <- all_data.combined_meta.data %>% group_by(seurat_clusters, orig.ident) %>% tally() 
+```
 
-table(all_data.combined@meta.data$seurat_clusters, object@meta.data$orig.ident)
+```{r}
+table(all_data.combined@meta.data$seurat_clusters, all_data.combined@meta.data$orig.ident)
 
 table(all_data.combined@active.ident, all_data.combined@meta.data$orig.ident)
 ```
@@ -329,5 +344,29 @@ more_plots <- wrap_plots(clust_plot, conc_plot, count_plot, ncol = 3, guides = "
 ```{r}
 counts_per_cluster_and_ident_spread <- counts_per_cluster_and_ident %>% tidyr::spread(key=orig.ident, value=n)
 ```
+
+
+```{r}
+sessionInfo()
+```
+
+```{r}
+save.image(file = "/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/dennery.RData")
+```
+
+```{r}
+saveRDS(all_data.combined, file = "/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/all_data.combined.RDS")
+```
+
+```{r}
+write.table((table(all_data.combined@meta.data$seurat_clusters, all_data.combined@meta.data$orig.ident)), "/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/cells_per_seurat_cluster.txt")
+```
+
+predicted.id
+
+```{r}
+write.table((table(all_data.combined@meta.data$predicted.id, all_data.combined@meta.data$orig.ident)), "/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/cells_per_mca_cluster_annot.txt")
+```
+
 
 table(object@ident, object@meta.data$orig.ident)

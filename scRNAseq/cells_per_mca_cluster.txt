@@ -1,0 +1,33 @@
+"AirD7" "O2D7" "AirD60" "O2D60"
+"Alveolar bipotent progenitor(Lung)" 3 1 2 0
+"Alveolar macrophage_Ear2 high(Lung)" 156 74 170 187
+"Alveolar macrophage_Pclaf high(Lung)" 8 9 15 9
+"AT1 Cell(Lung)" 63 46 40 55
+"AT2 Cell(Lung)" 432 234 453 530
+"B Cell(Lung)" 482 152 1265 1274
+"Basophil(Lung)" 11 8 11 11
+"Ciliated cell(Lung)" 67 7 42 38
+"Clara Cell(Lung)" 60 12 6 7
+"Conventional dendritic cell_Gngt2 high(Lung)" 60 46 151 194
+"Conventional dendritic cell_H2-M2 high(Lung)" 0 4 7 8
+"Conventional dendritic cell_Mgl2 high(Lung)" 2 3 39 40
+"Conventional dendritic cell_Tubb5 high(Lung)" 20 10 6 11
+"Dendritic cell_Naaa high(Lung)" 7 5 34 40
+"Dividing cells(Lung)" 21 20 2 5
+"Dividing dendritic cells(Lung)" 0 0 6 5
+"Dividing T cells(Lung)" 22 17 13 19
+"Endothelial cell_Kdr high(Lung)" 26 31 117 134
+"Endothelial cell_Tmem100 high(Lung)" 227 154 618 644
+"Endothelial cells_Vwf high(Lung)" 20 24 77 64
+"Eosinophil granulocyte(Lung)" 11 11 27 56
+"Ig−producing B cell(Lung)" 0 0 3 5
+"Interstitial macrophage(Lung)" 24 19 67 56
+"Monocyte progenitor cell(Lung)" 0 0 0 1
+"Neutrophil granulocyte(Lung)" 4 3 4 3
+"NK Cell(Lung)" 16 10 181 189
+"Nuocyte(Lung)" 16 18 109 114
+"Plasmacytoid dendritic cell(Lung)" 30 21 126 162
+"Stromal cell_Acta2 high(Lung)" 210 98 40 46
+"Stromal cell_Dcn high(Lung)" 28 16 21 34
+"Stromal cell_Inmt high(Lung)" 157 134 281 288
+"T Cell_Cd8b1 high(Lung)" 125 59 464 526
