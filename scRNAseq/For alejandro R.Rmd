@@ -205,7 +205,6 @@ all_data.combined$tabula_predicted_clusters <- sapply(sapply(all_data.combined$p
 ```
 
 ```{r}
-#p1 <- DimPlot(all_data.combined, reduction="tsne", group.by = "atlas_predicted_clusters", split.by = "orig.ident") 
 p1 <- DimPlot(all_data.combined, reduction="tsne", group.by = "atlas_predicted_clusters") + NoLegend()
 p1 <- LabelClusters(p1, id="atlas_predicted_clusters", repel=TRUE)
 
@@ -213,6 +212,17 @@ p2 <- DimPlot(all_data.combined, reduction="tsne", group.by = "seurat_clusters")
 p2 <- LabelClusters(p2, id="seurat_clusters", repel=TRUE)
 
 wrap_plots(list(p1,p2), ncol = 2)
+```
+
+```{r}
+p3 <- DimPlot(all_data.combined, reduction="tsne", group.by = "atlas_predicted_clusters", split.by = "orig.ident") 
+p3 <- LabelClusters(p3, id="atlas_predicted_clusters", repel=TRUE)
+
+```
+
+```{r}
+p4 <- DimPlot(all_data.combined, reduction="tsne", group.by = "seurat_clusters", split.by = "orig.ident") 
+p4 <- LabelClusters(p4, id="seurat_clusters", repel=TRUE)
 ```
 
 
@@ -294,6 +304,7 @@ table(all_data.combined@meta.data$seurat_clusters, object@meta.data$orig.ident)
 table(all_data.combined@active.ident, all_data.combined@meta.data$orig.ident)
 ```
 
+#https://github.com/satijalab/seurat/issues/738
 ```{r}
 count_plot <- ggplot(counts_per_cluster_and_ident, aes(x = orig.ident, y = seurat_clusters, fill = n)) + 
   geom_tile() +
@@ -319,3 +330,4 @@ more_plots <- wrap_plots(clust_plot, conc_plot, count_plot, ncol = 3, guides = "
 counts_per_cluster_and_ident_spread <- counts_per_cluster_and_ident %>% tidyr::spread(key=orig.ident, value=n)
 ```
 
+table(object@ident, object@meta.data$orig.ident)
