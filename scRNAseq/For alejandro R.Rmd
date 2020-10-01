@@ -21,6 +21,7 @@ options(future.globals.maxSize = 4000 * 1024^2)
 setwd('/Users/jwalla12/Repositories/dennery_scrna/scRNAseq')
 #source('/Users/jwalla12/Repositories/FIt-SNE/fast_tsne.R', chdir=T)
 ```
+
 ```{r}
 # Load data}
 
@@ -362,11 +363,54 @@ saveRDS(all_data.combined, file = "/Users/jwalla12/Repositories/dennery_scrna/sc
 write.table((table(all_data.combined@meta.data$seurat_clusters, all_data.combined@meta.data$orig.ident)), "/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/cells_per_seurat_cluster.txt")
 ```
 
-predicted.id
-
 ```{r}
 write.table((table(all_data.combined@meta.data$predicted.id, all_data.combined@meta.data$orig.ident)), "/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/cells_per_mca_cluster_annot.txt")
 ```
 
+```{r}
+load(file = "/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/dennery.RData")
+```
 
-table(object@ident, object@meta.data$orig.ident)
+
+DotPlot(
+  object,
+  assay = NULL,
+  features,
+  cols = c("lightgrey", "blue"),
+  col.min = -2.5,
+  col.max = 2.5,
+  dot.min = 0,
+  dot.scale = 6,
+  group.by = NULL,
+  split.by = NULL,
+  scale.by = "radius",
+  scale.min = NA,
+  scale.max = NA
+)
+```{r}
+top_marker <- all_data.combined.markers %>% group_by(cluster) %>% top_n(n = 1, wt = avg_logFC)
+
+
+
+DotPlot(all_data.combined, features = c(top_marker$gene))  + RotatedAxis()
+```
+
+```{r}
+
+top5_markers[which(top5_markers$cluster == 1),]$gene
+
+```
+```{r}
+grouped <- top5_markers %>% group_by(cluster) %>% select(gene) 
+out <- split( df , f = df$userid )
+
+out <- split( df , f = df$userid )
+```
+```{r}
+clusters_list <- list(0:(length(unique(top5_markers$cluster))-1))
+```
+
+```{r}
+markers_list <- lapply(seq_along(top5_markers$cluster), function(i) top5_markers[which(top5_markers$cluster == i),]$gene) 
+```
+lapply(seq_along(diatoms), function(i)
