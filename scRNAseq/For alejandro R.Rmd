@@ -202,13 +202,10 @@ p3
 p4
 ```
 
-### Looking at markers...
 
 ```{r}
 all_data.combined <- readRDS("/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/all_data.combined.RDS")
-```
 
-```{r}
 # get a list of all the genes in the Seurat object.
 all_genes <- data.frame(rownames(all_data.combined)) %>% rename(rownames.all_data.combined. = "mgi_symbol")
 
@@ -219,50 +216,7 @@ mouse_biomart_data <- getBM(mart = mouse_biomart, attributes = c("mgi_descriptio
 all_genes_bm <- right_join(mouse_biomart_data, all_genes)
 ```
 
-
-
-
-```{r}
-# find markers for every cluster compared to all remaining cells, report only the positive ones
-all_data.combined.markers.sct <- FindAllMarkers(all_data.combined, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25, assay = 'SCT')
-all_data.combined.markers.integrated <- FindAllMarkers(all_data.combined, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25, assay = 'integrated')
-```
-
-```{r}
-# Add the gene information to each cluster..
-
-all_data.combined.markers.sct <- left_join(all_data.combined.markers.sct, all_genes_bm, by = c('gene' = 'mgi_symbol'))
-all_data.combined.markers.integrated <- left_join(all_data.combined.markers.integrated, all_genes_bm, by = c('gene' = 'mgi_symbol'))
-```
-
-
-```{r}
-#split up the markers by cluster..
-cluster_levels <- levels(all_data.combined.markers.sct$cluster)
-all_data.combined.markers.sct.split <- lapply(seq_along(cluster_levels), function(i) all_data.combined.markers.sct %>% dplyr::filter(cluster == cluster_levels[i]))
-all_data.combined.markers.integrated.split <- lapply(seq_along(cluster_levels), function(i) all_data.combined.markers.integrated %>% dplyr::filter(cluster == cluster_levels[i]))
-
-```
-
-```{r}
-top5_markers <- all_data.combined.markers.sct %>% group_by(cluster) %>% top_n(n = 5, wt = avg_logFC)
-
-top5_markers$rank <- rep(1:5, length.out = nrow(top5_markers))
-
-clust_plot <- ggplot(top5_markers, aes(x = rank, y = cluster, fill = avg_logFC)) + 
-  geom_tile() +
-  theme(panel.grid = element_blank(),
-        axis.title.y = element_blank(),
-        axis.title.x = element_blank(),
-        axis.text.x = element_blank(),
-        axis.ticks = element_blank()) +
-  geom_text(aes(label = gene, size = 8)) +
-  xlab("") +
-  scale_fill_gradientn(
-    colors = c("white", "purple3"),
-    limits = range(top5_markers$avg_logFC)) +
-  theme_minimal()
-
+```{r How well do the Seurat clusters and the predicted clusters correspond?}
 concordance <- data.frame(x=all_data.combined$atlas_predicted_clusters, y=all_data.combined$seurat_clusters)
 
 normalize <- function(x) {
@@ -286,6 +240,45 @@ conc_plot <- ggplot(conc_plot_data, aes(x, y, fill = value)) +
   theme(panel.grid = element_blank(),
         axis.text.x=element_text(angle=90),
         axis.ticks = element_blank())
+```
+
+
+```{r Look at marker genes across clusters e.g., which genes are most important for distinguishing the cell clusters -- we were using the integrated data previously, but I think using the 'SCT' normalized data is a better idea.}
+Idents(all_data.combined) <- all_data.combined$seurat_clusters
+
+# find markers for every cluster compared to all remaining cells, report only the positive ones
+all_data.combined.markers.sct <- FindAllMarkers(all_data.combined, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25, assay = 'SCT')
+all_data.combined.markers.integrated <- FindAllMarkers(all_data.combined, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25, assay = 'integrated')
+
+# Add the gene information to each cluster..
+all_data.combined.markers.sct <- left_join(all_data.combined.markers.sct, all_genes_bm, by = c('gene' = 'mgi_symbol'))
+all_data.combined.markers.integrated <- left_join(all_data.combined.markers.integrated, all_genes_bm, by = c('gene' = 'mgi_symbol'))
+
+#split up the markers by cluster..
+cluster_levels <- levels(all_data.combined.markers.sct$cluster)
+all_data.combined.markers.sct.split <- lapply(seq_along(cluster_levels), function(i) all_data.combined.markers.sct %>% dplyr::filter(cluster == cluster_levels[i]))
+all_data.combined.markers.integrated.split <- lapply(seq_along(cluster_levels), function(i) all_data.combined.markers.integrated %>% dplyr::filter(cluster == cluster_levels[i]))
+
+#doing some filtering to look at just the 'top markers', but probably want to only use these for making figures.
+top5_markers <- all_data.combined.markers.sct %>% group_by(cluster) %>% top_n(n = 5, wt = avg_logFC)
+
+top5_markers$rank <- rep(1:5, length.out = nrow(top5_markers))
+
+clust_plot <- ggplot(top5_markers, aes(x = rank, y = cluster, fill = avg_logFC)) + 
+  geom_tile() +
+  theme(panel.grid = element_blank(),
+        axis.title.y = element_blank(),
+        axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks = element_blank()) +
+  geom_text(aes(label = gene, size = 8)) +
+  xlab("") +
+  scale_fill_gradientn(
+    colors = c("white", "purple3"),
+    limits = range(top5_markers$avg_logFC)) +
+  theme_minimal()
+
+
 
 ```
 
@@ -359,21 +352,6 @@ sessionInfo()
 
 
 
-```{r}
-top_marker <- all_data.combined.markers %>% group_by(cluster) %>% top_n(n = 1, wt = avg_logFC)
-
-DotPlot(all_data.combined, features = c(top_marker$gene))  + RotatedAxis()
-
-top5_markers[which(top5_markers$cluster == 1),]$gene
-
-grouped <- top5_markers %>% group_by(cluster) %>% select(gene) 
-
-clusters_list <- list(0:(length(unique(top5_markers$cluster))-1))
-
-markers_list <- lapply(seq_along(top5_markers$cluster), function(i) top5_markers[which(top5_markers$cluster == i),]$gene) 
-```
-
-
 
 
 ```{r Differential Expression}
@@ -407,64 +385,11 @@ Idents(all_data.combined) <- 'orig.ident'
 DefaultAssay(all_data.combined) <- 'SCT'
 ```
 
-# Interested in looking at metabolic genes (esp. in AT2 cells)
-
-genes:
-
-glycolysis:
-Aldoa, Aldob, Aldoc, Bpgm, Eno1, Eno2, Eno3, Gapdhs, Gpi1, Hk2, Hk3, Pfkl, Pgk1, Pgk2,
-Pgm1, Pgm2, Pgm3, Pklr, Tpi1.
-
-TCA:
-Aco1, Aco2, Citrate synthase, Dlat, Dld, Dlst, Fh1, Idh1, Idh2, Idh3a, Idh3b,
-Idh3g, Mdh1, Mdh1b, Mdh2, Ogdh, Pck1, Pck2, Pcx, Pdha1, Pdhb, Sdha, Sdhb, Sdhc, Sdhd, Sucla2,
-Suclg1, Suclg2.
-
-'hemoxygenase' genes are also of interest?
-
-'hmox1' hmox2 is there too but shouldnt be changing too much.
 
 
-
+# This chunk will take the Seurat object as an input and filter is such that each seurat cluster is in its own seurat object and then findallmarkers, then make dotplots of the top markers across the experimental conditions
 ```{r}
-#filter to get the genes in each of these kegg pathways or descrption keywords
-glycolysis <- all_genes_bm %>% 
-  filter(str_detect(kegg_enzyme, "^00010+"))
-
-tca <- all_genes_bm %>% 
-  filter(str_detect(kegg_enzyme, "^00020+"))
-
-hmox <- all_genes_bm %>%
-  filter(str_detect(description, "heme oxygenase"))
-```
-
-```{r}
-#make a dotplot of the hmox genes for each cluster:
-hmox_dotplots <- lapply(seq_along(seurat.list), function(i) DotPlot(seurat.list[[i]], assay = 'SCT', features = c(hmox$mgi_symbol)) + RotatedAxis() + ggtitle(paste0("Heme oxygenase genes - Seurat Cluster ", names(seurat.list[i]))))
-
-glycolysis_dotplots <- lapply(seq_along(seurat.list), function(i) DotPlot(seurat.list[[i]], assay = 'SCT', features = c(glycolysis$mgi_symbol)) + RotatedAxis() + ggtitle(paste0("Glycolysis genes - Seurat Cluster ", names(seurat.list[i]))))
-
-tca_dotplots <- lapply(seq_along(seurat.list), function(i) DotPlot(seurat.list[[i]], assay = 'SCT', features = c(unique(tca$mgi_symbol))) + RotatedAxis() + ggtitle(paste0("TCA genes - Seurat Cluster ", names(seurat.list[i]))))
-```
-
-```{r}
-#save the dotplots
-lapply(seq_along(hmox_dotplots), function(i) ggsave(plot = hmox_dotplots[[i]], file = paste0("/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/figures/hmox_dotplots/cluster_", i-1, "_hmox_dotplot.pdf"), width = 11,  height = 7))
-```
-
-```{r}
-#save the dotplots
-lapply(seq_along(glycolysis_dotplots), function(i) ggsave(plot = glycolysis_dotplots[[i]], file = paste0("/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/figures/glycolysis_dotplots/cluster_", i-1, "_glycolysis_dotplot.pdf"), width = 15,  height = 7))
-```
-
-```{r}
-#save the dotplots
-lapply(seq_along(tca_dotplots), function(i) ggsave(plot = tca_dotplots[[i]], file = paste0("/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/figures/tca_dotplots/cluster_", i-1, "_tca_dotplot.pdf"), width = 11,  height = 7))
-```
-
-
-# This chunk will take the Seurat object as an input and filter is such that each seurat cluster is in its own seurat object and then make dotplots of the top markers across the experimental conditions...
-```{r}
+#set the levels
 clusters <- levels(all_data.combined@meta.data$seurat_clusters)
 
 construct <- unlist(lapply(seq_along(clusters), function(i) paste0("all_data.combined_", clusters[i], "<- subset(all_data.combined, subset = seurat_clusters =='", clusters[i], "')")))
@@ -474,7 +399,13 @@ seurat.list <- lapply(seq_along(construct), function(i) eval(parse(text = constr
 names(seurat.list) <- c(levels(all_data.combined@meta.data$seurat_clusters))
 
 seurat.list.markers <- lapply(seurat.list, FindAllMarkers, min.pct = 0.25, logfc.threshold = 0.25, assay = 'SCT')
-                       
+
+#Add the gene explanations to each file..
+seurat.list.markers.ids <- lapply(seq_along(seurat.list.markers), function(i) left_join(seurat.list.markers[[i]], all_genes_bm, by = c('gene' = 'mgi_symbol')))
+
+#write the findallmarkers outputs for each cluster to a file
+lapply(seq_along(seurat.list.markers.ids), function(i) write.csv(seurat.list.markers.ids[[i]], file = paste0("/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/figures_and_tables/tables/condition_markers/cluster_", i-1, "_per_condition_markers.csv"), row.names = F))
+
 get_top_markers <- function(seurat_markers){
   output <- seurat_markers %>% group_by(cluster)  %>% top_n(n = 10, wt = avg_logFC)
   return(output)
@@ -484,99 +415,41 @@ seurat.list.top.markers <- lapply(seurat.list.markers, get_top_markers)
 
 seurat_list_dotplots <- lapply(seq_along(seurat.list), function(i) DotPlot(seurat.list[[i]], features = c(unique(seurat.list.top.markers[[i]]$gene))) + RotatedAxis() + ggtitle(paste0("Seurat Cluster ", names(seurat.list[i]))))
 
-lapply(seq_along(seurat_list_dotplots), function(i) ggsave(plot = seurat_list_dotplots[[i]], file = paste0("/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/figures/cluster_", i-1, "_dotplot.pdf"), width = 11,  height = 7))
-```
-
-```{r}
-#write the findallmarkers outputs for each cluster to a file
-
-lapply(seq_along(seurat.list.top.markers), function(i) write.csv(seurat.list.top.markers[[i]], file = paste0("/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/tables/cluster_", i-1, "_markers.csv"), row.names = F))
+#lapply(seq_along(seurat_list_dotplots), function(i) ggsave(plot = seurat_list_dotplots[[i]], file = paste0("/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/figures/cluster_", i-1, "_dotplot.pdf"), width = 11,  height = 7))
 
 ```
 
 
+```{r Look at specific pathways of interest...}
+#filter to get the genes in each of these kegg pathways or descrption keywords
+glycolysis <- all_genes_bm %>% 
+  filter(str_detect(kegg_enzyme, "^00010+"))
 
+tca <- all_genes_bm %>% 
+  filter(str_detect(kegg_enzyme, "^00020+"))
 
-```{r AT1 cells}
-all_data.combined_25 <- subset(all_data.combined, subset = seurat_clusters =="25")
-DefaultAssay(all_data.combined_25) <- 'SCT'
+hmox <- all_genes_bm %>%
+  filter(str_detect(mgi_description, "heme oxygenase"))
 
-all_data.combined_25.markers <- FindAllMarkers(all_data.combined_25, min.pct = 0.25, logfc.threshold = 0.25, assay = 'SCT')
-all_data.combined_25.top_markers <- all_data.combined_25.markers %>% group_by(cluster) %>% top_n(n = 10, wt = avg_logFC)
-DotPlot(all_data.combined_25, features = c(unique(all_data.combined_25.top_markers$gene)))  + RotatedAxis()
+#make a dotplot of the hmox genes for each cluster:
+hmox_dotplots <- lapply(seq_along(seurat.list), function(i) DotPlot(seurat.list[[i]], assay = 'SCT', features = c(hmox$mgi_symbol)) + RotatedAxis() + ggtitle(paste0("Heme oxygenase genes - Seurat Cluster ", names(seurat.list[i]))))
 
+glycolysis_dotplots <- lapply(seq_along(seurat.list), function(i) DotPlot(seurat.list[[i]], assay = 'SCT', features = c(glycolysis$mgi_symbol)) + RotatedAxis() + ggtitle(paste0("Glycolysis genes - Seurat Cluster ", names(seurat.list[i]))))
 
+tca_dotplots <- lapply(seq_along(seurat.list), function(i) DotPlot(seurat.list[[i]], assay = 'SCT', features = c(unique(tca$mgi_symbol))) + RotatedAxis() + ggtitle(paste0("TCA genes - Seurat Cluster ", names(seurat.list[i]))))
 
-all_data.combined_25.markers <- FindMarkers(all_data.combined_25, min.pct = 0.25, logfc.threshold = 0.25, assay = 'SCT', ident.1 ='AirD60', ident.2 = '')
-```
-```{r ciliated}
-all_data.combined_28 <- subset(all_data.combined, subset = seurat_clusters =="28")
-DefaultAssay(all_data.combined_28) <- 'SCT'
+#save the dotplots
+lapply(seq_along(hmox_dotplots), function(i) ggsave(plot = hmox_dotplots[[i]], file = paste0("/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/figures/hmox_dotplots/cluster_", i-1, "_hmox_dotplot.pdf"), width = 11,  height = 7))
 
-all_data.combined_28.markers <- FindAllMarkers(all_data.combined_28, min.pct = 0.25, logfc.threshold = 0.25, assay = 'SCT')
-all_data.combined_28.top_markers <- all_data.combined_28.markers %>% group_by(cluster) %>% top_n(n = 10, wt = avg_logFC)
-DotPlot(all_data.combined_28, features = c(unique(all_data.combined_28.top_markers$gene)))  + RotatedAxis()
-```
+#save the dotplots
+lapply(seq_along(glycolysis_dotplots), function(i) ggsave(plot = glycolysis_dotplots[[i]], file = paste0("/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/figures/glycolysis_dotplots/cluster_", i-1, "_glycolysis_dotplot.pdf"), width = 15,  height = 7))
 
-
-```{r club/clara}
-all_data.combined_39 <- subset(all_data.combined, subset = seurat_clusters =="39")
-DefaultAssay(all_data.combined_39) <- 'SCT'
-
-all_data.combined_39.markers <- FindAllMarkers(all_data.combined_39, min.pct = 0.25, logfc.threshold = 0.25, assay = 'SCT')
-all_data.combined_39.top_markers <- all_data.combined_39.markers %>% group_by(cluster) %>% top_n(n = 10, wt = avg_logFC)
-DotPlot(all_data.combined_39, features = c(unique(all_data.combined_39.top_markers$gene)))  + RotatedAxis()
+#save the dotplots
+lapply(seq_along(tca_dotplots), function(i) ggsave(plot = tca_dotplots[[i]], file = paste0("/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/figures/tca_dotplots/cluster_", i-1, "_tca_dotplot.pdf"), width = 11,  height = 7))
 ```
 
 
-# Clusters 3, 11, 13, 22, and 27 are the AT2 cell types (22 and 27 have other cell types too).
-
-
-```{r AT2 - clust 3}
-all_data.combined_3 <- subset(all_data.combined, subset = seurat_clusters =="3")
-DefaultAssay(all_data.combined_3) <- 'SCT'
-
-all_data.combined_3.markers <- FindAllMarkers(all_data.combined_3, min.pct = 0.25, logfc.threshold = 0.25, assay = 'SCT')
-all_data.combined_3.top_markers <- all_data.combined_3.markers %>% group_by(cluster) %>% top_n(n = 10, wt = avg_logFC)
-DotPlot(all_data.combined_3, features = c(unique(all_data.combined_3.top_markers$gene)))  + RotatedAxis()
-```
-
-
-```{r AT2 - clust 13}
-all_data.combined_13 <- subset(all_data.combined, subset = seurat_clusters =="13")
-DefaultAssay(all_data.combined_13) <- 'SCT'
-
-all_data.combined_13.markers <- FindAllMarkers(all_data.combined_13, min.pct = 0.25, logfc.threshold = 0.25, assay = 'SCT')
-all_data.combined_13.top_markers <- all_data.combined_13.markers %>% group_by(cluster) %>% top_n(n = 10, wt = avg_logFC)
-DotPlot(all_data.combined_13, features = c(unique(all_data.combined_13.top_markers$gene)))  + RotatedAxis()
-```
-
-```{r AT2 - clust 11}
-all_data.combined_11 <- subset(all_data.combined, subset = seurat_clusters =="11")
-DefaultAssay(all_data.combined_11) <- 'SCT'
-
-all_data.combined_11.markers <- FindAllMarkers(all_data.combined_11, min.pct = 0.25, logfc.threshold = 0.25, assay = 'SCT')
-all_data.combined_11.top_markers <- all_data.combined_11.markers %>% group_by(cluster) %>% top_n(n = 10, wt = avg_logFC)
-DotPlot(all_data.combined_11, features = c(unique(all_data.combined_11.top_markers$gene)))  + RotatedAxis()
-```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-```{r}
+```{r Make some specific comparisons...}
 AT1_D60_Air_v_O2.markers <- FindMarkers(all_data.combined_AT1, min.pct = 0.5, logfc.threshold = 0.25, assay = 'SCT', ident.1 = 'O2D60', ident.2 = 'AirD60')
 
 DotPlot(all_data.combined_AT1, features = unique(rownames(AT1_D60_Air_v_O2.markers)))  + RotatedAxis()
