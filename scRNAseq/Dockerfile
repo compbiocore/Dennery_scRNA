@@ -13,7 +13,7 @@ RUN apt-get update && \
         ca-certificates \
         cmake \
         curl \
-	    default-jdk \
+	default-jdk \
         default-jre\
         gdb \
         git \
@@ -51,6 +51,7 @@ RUN apt-get update && \
         postgis \
         protobuf-compiler \
         python3-pip \
+        r-cran-rjava \ 
         sqlite3 \
         tk-dev \
         unixodbc-dev \
@@ -77,14 +78,23 @@ RUN wget http://www.fftw.org/fftw-3.3.8.tar.gz \
 RUN R -e "install.packages('BiocManager', dependencies=TRUE, repos='http://cran.rstudio.com/', ask = FALSE)"
 RUN R -e "install.packages('devtools', dependencies=TRUE, repos='http://cran.rstudio.com/', ask = FALSE)"
 
-RUN R -e 'install.packages(c("broom", "corrplot", "car", "cowplot", "MASS", "fitdistrplus", "future", "future.apply", "ggrepel", "ggridges", "hdf5r", "httr", "ica", "igraph", "irlba", "jsonlite", "leiden", "lmtest", "matrixStats", "miniUI", "patchwork", "pbapply", "plotly", "png", "RANN", "Rcpp", "RcppAnnoy", "reticulate", "ROCR", "rsvd", "Rtsne", "sctransform", "shiny", "spatstat", "tidyverse", "uwot", "RcppEigen", "RcppProgress", "RColorBrewer", "viridis", "spatstat", "rstatix"), dependencies=TRUE, repos="http://cran.rstudio.com/", ask = FALSE)' \
+RUN R -e "install.packages(c('broom', 'corrplot', 'car', 'cowplot', 'MASS', 'fitdistrplus', 'future', 'future.apply', 'ggrepel', 'ggridges', 'httr', 'ica', 'igraph', 'irlba', 'jsonlite', 'leiden', 'lmtest','knitr', 'kableExtra','matrixStats', 'miniUI', 'patchwork', 'pbapply', 'plotly', 'png', 'RANN', 'Rcpp', 'RcppAnnoy', 'reticulate', 'ROCR', 'rsvd', 'Rtsne', 'sctransform', 'tidyverse', 'RColorBrewer', 'viridis', 'spatstat', 'uwot', 'RcppProgress', 'xlsx'), dependencies=TRUE, repos='http://cran.rstudio.com/', ask = FALSE)"
 
-RUN R -e 'BiocManager::install(c( "minfi", "BiocGenerics", "DelayedArray", "DelayedMatrixStats", "limma", "S4Vectors", "SingleCellExperiment", "SummarizedExperiment", "batchelor", "AnnotationHub", "biomaRt", "clusterProfiler", "enrichplot", "batchelor", "Biobase", "limma", "rhdf5filters", "XVector", "GenomeInfoDb", "sparseMatrixStats", "BiocNeighbors", "DelayedArray", "rhdf5", "DOSE", "beachmat", "GenomicRanges", "ResidualMatrix", "HDF5Array", "BiocSingular", "scuttle"),  update = FALSE, ask = FALSE)' \
+RUN R -e "BiocManager::install(c('AnnotationHub','DOSE','GenomeInfoDb','GenomicRanges','SingleCellExperiment','SummarizedExperiment','biomaRt','clusterProfiler','enrichplot', 'limma', 'edgeR'), update = FALSE)"
 
-RUN R -e 'install.packages("https://cran.r-project.org/src/contrib/Archive/spatstat/spatstat_1.64-1.tar.gz"", repos=NULL,type="source")' \
-RUN R -e 'install.packages("https://cran.r-project.org/src/contrib/Archive/Seurat/Seurat_3.2.1.tar.gz", repos = NULL, type = "source")' \
-RUN R -e 'install.packages("https://cran.r-project.org/src/contrib/Archive/rstatix/rstatix_0.6.0.tar.gz", repos = NULL, type = "source")' \
-RUN R -e 'install.packages("https://cran.r-project.org/src/contrib/Archive/sctransform/sctransform_0.2.1.tar.gz", repos = NULL, type = "source")' \
 
-RUN R -e 'devtools::install_github("cole-trapnell-lab/leidenbase")' \
-RUN R -e 'devtools::install_github("cole-trapnell-lab/monocle3")' 
+RUN R -e "install.packages('https://cran.r-project.org/src/contrib/Archive/rstatix/rstatix_0.6.0.tar.gz', repos = NULL, type = 'source')"
+RUN R -e "install.packages('https://cran.r-project.org/src/contrib/Archive/crayon/crayon_1.3.4.tar.gz', repos = NULL, type = 'source')"
+RUN R -e "install.packages('https://cran.r-project.org/src/contrib/Archive/hdf5r/hdf5r_1.3.2.tar.gz', repos = NULL, type = 'source')"
+RUN R -e "install.packages('https://cran.r-project.org/src/contrib/Archive/R6/R6_2.4.1.tar.gz', repos = NULL, type = 'source')"
+RUN R -e "install.packages('https://cran.r-project.org/src/contrib/Archive/rlang/rlang_0.4.10.tar.gz', repos = NULL, type = 'source')"
+RUN R -e "install.packages('https://cran.r-project.org/src/contrib/Archive/SeuratObject/SeuratObject_4.0.0.tar.gz', repos = NULL, type = 'source')"
+RUN R -e "install.packages('https://cran.r-project.org/src/contrib/Archive/stringi/stringi_1.5.3.tar.gz', repos = NULL, type = 'source')"
+RUN R -e "install.packages('https://cran.r-project.org/src/contrib/Archive/withr/withr_2.3.0.tar.gz', repos = NULL, type = 'source')"
+RUN R -e "install.packages('https://cran.r-project.org/src/contrib/Archive/Matrix/Matrix_1.3-0.tar.gz', repos = NULL, type = 'source')"
+RUN R -e "install.packages('https://cran.r-project.org/src/contrib/Archive/spatstat/spatstat_1.64-1.tar.gz', repos = NULL, type = 'source')"
+RUN R -e "install.packages('https://cran.r-project.org/src/contrib/Archive/Seurat/Seurat_3.2.2.tar.gz', repos = NULL, type = 'source')"
+
+#COPY ./packages.R /home/rstudio
+
+#RUN Rscript /home/rstudio/packages.R

@@ -28,8 +28,8 @@ options(future.globals.maxSize = 4000 * 1024^2)
 
 ```{r}
 #saveRDS(all_data.combined, file = "/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/all_data.combined.RDS")
-all_data.combined <- readRDS(file = "/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/all_data.combined.RDS")
-all_genes_bm <- readRDS("/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/all_genes_bm.RDS")
+#all_data.combined <- readRDS(file = "/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/all_data.combined.RDS")
+#all_genes_bm <- readRDS("/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/all_genes_bm.RDS")
 #mca.matrix <- readRDS(file = "./MCA/MCA_merged_mat.rds")
 #mca.matrix.lung <- mca.matrix[,grepl("^Lung_", colnames(mca.matrix))]
 #all_data.combined@meta.data$atlas_predicted_clusters_short <- all_data.combined@meta.data$atlas_predicted_clusters_short[,grepl("^Lung_", colnames(mca.matrix))]
@@ -38,8 +38,6 @@ all_genes_bm <- readRDS("/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/all
 #colnames(all_data.combined@meta.data) <- str_replace(colnames(all_data.combined@meta.data), pattern = 'Clara', replacement = 'Club')
 
 ```
-
-
 
 ```{r Data import and merging}
 # These lines don't work if run as part of a markdown code chunk, instead copy and paste them run into the rstudio console and them them there. them via the R console in RStudio (this seems to be an rstudio bug).
@@ -70,7 +68,7 @@ all_data <- merge(x = AirD7.data, y = c(O2D7.data, AirD60.data, O2D60.data), add
 all_data[["percent.mt"]] <- PercentageFeatureSet(all_data, pattern = "^mt-")
 
 #Set levels
-Idents(all_data) <- factor(Idents(all_data), levels = c('AirD7', 'O2D7', 'AirD60', 'O2D60'))
+Idents(all_data) <- factor(Idents(all_data), levels = c("AirD7","O2D7","SD7", "AirD60", "O2D60"))
 
 # QC Plots
 VlnPlot(all_data, features = "nFeature_RNA")
@@ -208,7 +206,7 @@ colnames(all_data.combined@meta.data) <- str_replace(colnames(all_data.combined@
 ```
 
 ```{r Look at TSNE plots and compare mca vs seurat clusters}
-all_data.combined$orig.ident <- factor( x = all_data.combined$orig.ident, levels = c("AirD7", "O2D7", "AirD60", "O2D60"))
+all_data.combined$orig.ident <- factor( x = all_data.combined$orig.ident, levels = c("AirD7", "O2D7", "SD7",  "AirD60", "O2D60"))
 
 p1 <- DimPlot(all_data.combined, reduction="tsne", group.by = "atlas_predicted_clusters") 
 p1 <- LabelClusters(p1, id="atlas_predicted_clusters", repel=TRUE)
@@ -232,305 +230,212 @@ p4 <- DimPlot(all_data.combined, reduction="tsne", group.by = "seurat_clusters",
 p4
 ```
 
-```{r}
-#Trying to get a tSNE plot where the mca annotations are encoded as numbers insted (to make the viz easier in the paper).
-
-all_data.combined$mca_encoded<-as.factor(all_data.combined$atlas_predicted_clusters_short)
-
-levels(all_data.combined$mca_encoded)[levels(all_data.combined$mca_encoded)=="Alveolar bipotent progenitor"] <- "1"
-levels(all_data.combined$mca_encoded)[levels(all_data.combined$mca_encoded)=="Alveolar macrophage_Ear2 high"] <- "2"
-levels(all_data.combined$mca_encoded)[levels(all_data.combined$mca_encoded)=="Alveolar macrophage_Pclaf high"] <- "3"
-levels(all_data.combined$mca_encoded)[levels(all_data.combined$mca_encoded)=="AT1 Cell"] <- "4"
-levels(all_data.combined$mca_encoded)[levels(all_data.combined$mca_encoded)=="AT2 Cell"] <- "5"
-levels(all_data.combined$mca_encoded)[levels(all_data.combined$mca_encoded)=="B Cell"] <- "6"
-levels(all_data.combined$mca_encoded)[levels(all_data.combined$mca_encoded)=="Basophil"] <- "7"
-levels(all_data.combined$mca_encoded)[levels(all_data.combined$mca_encoded)=="Ciliated cell"] <- "8"
-levels(all_data.combined$mca_encoded)[levels(all_data.combined$mca_encoded)=="Club Cell"] <- "9"
-levels(all_data.combined$mca_encoded)[levels(all_data.combined$mca_encoded)=="Conventional dendritic cell_Gngt2 high"] <- "10"
-levels(all_data.combined$mca_encoded)[levels(all_data.combined$mca_encoded)=="Conventional dendritic cell_H2-M2 high"] <- "11"
-levels(all_data.combined$mca_encoded)[levels(all_data.combined$mca_encoded)=="Conventional dendritic cell_Mgl2 high"] <- "12"
-levels(all_data.combined$mca_encoded)[levels(all_data.combined$mca_encoded)=="Conventional dendritic cell_Tubb5 high"] <- "13"
-levels(all_data.combined$mca_encoded)[levels(all_data.combined$mca_encoded)=="Dendritic cell_Naaa high"] <- "14"
-levels(all_data.combined$mca_encoded)[levels(all_data.combined$mca_encoded)=="Dividing cells"] <- "15"
-levels(all_data.combined$mca_encoded)[levels(all_data.combined$mca_encoded)=="Dividing dendritic cells"] <- "16"
-levels(all_data.combined$mca_encoded)[levels(all_data.combined$mca_encoded)=="Dividing T cells"] <- "17"
-levels(all_data.combined$mca_encoded)[levels(all_data.combined$mca_encoded)=="Endothelial cell_Kdr high"] <- "18"
-levels(all_data.combined$mca_encoded)[levels(all_data.combined$mca_encoded)=="Endothelial cell_Tmem100 high"] <- "19"
-levels(all_data.combined$mca_encoded)[levels(all_data.combined$mca_encoded)=="Endothelial cells_Vwf high"] <- "20"
-levels(all_data.combined$mca_encoded)[levels(all_data.combined$mca_encoded)=="Eosinophil granulocyte"] <- "21"
-levels(all_data.combined$mca_encoded)[levels(all_data.combined$mca_encoded)=="Ig−producing B cell"] <- "22"
-levels(all_data.combined$mca_encoded)[levels(all_data.combined$mca_encoded)=="Interstitial macrophage"] <- "23"
-levels(all_data.combined$mca_encoded)[levels(all_data.combined$mca_encoded)=="Monocyte progenitor cell"] <- "24"
-levels(all_data.combined$mca_encoded)[levels(all_data.combined$mca_encoded)=="Neutrophil granulocyte"] <- "25"
-levels(all_data.combined$mca_encoded)[levels(all_data.combined$mca_encoded)=="NK Cell"] <- "26"
-levels(all_data.combined$mca_encoded)[levels(all_data.combined$mca_encoded)=="Nuocyte"] <- "27"
-levels(all_data.combined$mca_encoded)[levels(all_data.combined$mca_encoded)=="Plasmacytoid dendritic cell"] <- "28"
-levels(all_data.combined$mca_encoded)[levels(all_data.combined$mca_encoded)=="Stromal cell_Acta2 high"] <- "29"
-levels(all_data.combined$mca_encoded)[levels(all_data.combined$mca_encoded)=="Stromal cell_Dcn high"] <- "30"
-levels(all_data.combined$mca_encoded)[levels(all_data.combined$mca_encoded)=="Stromal cell_Inmt high"] <- "31"
-levels(all_data.combined$mca_encoded)[levels(all_data.combined$mca_encoded)=="T Cell_Cd8b1 high"] <- "32"
-
-all_data.combined$mca_encoded_translated <- paste0(all_data.combined$mca_encoded, "_", all_data.combined$atlas_predicted_clusters_short)
-
-all_data.combined$mca_encoded <- paste0("mca_", all_data.combined$mca_encoded)
-
-
-p5 <- DimPlot(all_data.combined, reduction="tsne", group.by = "mca_encoded") #+ NoLegend()
-p5 <- LabelClusters(p5, id="mca_encoded", repel=TRUE)
-#ggsave(plot = p2, file = '2a2_nolabel.png', width = 10, height = 10, units = 'in')
-p5
-```
-
-
-
-#things look ok but factor levels are a little different so maybe re-order them to make a little more sense...
-
-all_data.combp6ined$atlas_predicted_clusters <- factor(all_data.combined$atlas_predicted_clusters, levels = c("Alveolar bipotent progenitor", "Alveolar macrophage_Ear2 high", "Alveolar macrophage_Pclaf high", "AT1 Cell", "AT2 Cell", "B Cell", "Basophil", "Ciliated cell", "Clara Cell", "Conventional dendritic cell_Gngt2 high", "Conventional dendritic cell_H2-M2 high", "Conventional dendritic cell_Mgl2 high", "Conventional dendritic cell_Tubb5 high", "Dendritic cell_Naaa high", "Dividing cells", "Dividing dendritic cells", "Dividing T cells", "Endothelial cell_Kdr high", "Endothelial cell_Tmem100 high", "Endothelial cells_Vwf high", "Eosinophil granulocyte", "Ig−producing B cell", "Interstitial macrophage", "Monocyte progenitor cell", "Neutrophil granulocyte", "NK Cell", "Nuocyte", "Plasmacytoid dendritic cell", "Stromal cell_Acta2 high", "Stromal cell_Dcn high", "Stromal cell_Inmt high", "T Cell_Cd8b1 high"))
-
-all_data.combined$mca_encoded <- factor(all_data.combined$mca_encoded, levels = c("1","2","3","4","5","6","7","8","9","10","11", "12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28","29","30","31","32"))
-
-all_data.combined$mca_encoded_translated <- factor(all_data.combined$mca_encoded_translated, levels = c("1_Alveolar bipotent progenitor","2_Alveolar macrophage_Ear2 high","3_Alveolar macrophage_Pclaf high","4_AT1 Cell","5_AT2 Cell","6_B Cell","7_Basophil","8_Ciliated cell","9_Clara Cell","10_Conventional dendritic cell_Gngt2 high","11_Conventional dendritic cell_H2-M2 high","12_Conventional dendritic cell_Mgl2 high","13_Conventional dendritic cell_Tubb5 high","14_Dendritic cell_Naaa high","15_Dividing cells","16_Dividing dendritic cells","17_Dividing T cells","18_Endothelial cell_Kdr high","19_Endothelial cell_Tmem100 high","20_Endothelial cells_Vwf high","21_Eosinophil granulocyte","22_Ig−producing B cell","23_Interstitial macrophage","24_Monocyte progenitor cell","25_Neutrophil granulocyte","26_NK Cell","27_Nuocyte","28_Plasmacytoid dendritic cell","29_Stromal cell_Acta2 high","30_Stromal cell_Dcn high","31_Stromal cell_Inmt high","32_T Cell_Cd8b1 high"))
-
-#make some new plots..
-
-p6 <- DimPlot(all_data.combined, reduction="tsne", group.by = "mca_encoded") 
-p6 <- LabelClusters(p6, id="mca_encoded", repel=TRUE)
-#gsave(plot = p6, file = 'mca_encoded.pdf', width = 10, height = 10, units = 'in')
-p6
-
-p7 <- DimPlot(all_data.combined, reduction="tsne", group.by = "mca_encoded_translated") 
-p7 <- LabelClusters(p7, id="mca_encoded_translated", repel=TRUE)
-#ggsave(plot = p7, file = 'mca_encoded_translated.pdf', width = 20, height = 10, units = 'in')
-p7
-
-p8 <- DimPlot(all_data.combined, reduction="tsne", group.by = "atlas_predicted_clusters") 
-p8 <- LabelClusters(p8, id="atlas_predicted_clusters", repel=TRUE)
-#ggsave(plot = p8, file = 'atlas_predicted_clusters.pdf', width = 20, height = 10, units = 'in')
-p8
-
-p9 <- DimPlot(all_data.combined, reduction="tsne", group.by = "seurat_clusters") #+ NoLegend()
-p9 <- LabelClusters(p9, id="seurat_clusters", repel=TRUE)
-#ggsave(plot = p9, file = 'seurat_clusters.pdf', width = 10, height = 10, units = 'in')
-p9
-
-#fix the figues...
-
-all_data.combined@meta.data$atlas_predicted_clusters_numbers <- factor(
-  all_data.combined@meta.data$atlas_predicted_clusters, 
-  levels = unique(all_data.combined@meta.data$atlas_predicted_clusters), 
-  labels = paste0('mca_', c(1:length(unique((all_data.combined@meta.data$atlas_predicted_clusters))))))
-
-all_data.combined@meta.data$atlas_predicted_clusters_numbers_convert <- paste0(all_data.combined@meta.data$atlas_predicted_clusters_numbers, " : ", all_data.combined@meta.data$atlas_predicted_clusters) 
-
-library(purrr)
-
-map(strsplit(all_data.combined@meta.data$atlas_predicted_clusters_numbers_convert, split = " : "), 1)
-
-paste0('mca_', c(1:length(unique((all_data.combined@meta.data$atlas_predicted_clusters)))))
-
-p10 <- DimPlot(all_data.combined, reduction="tsne", group.by = "atlas_predicted_clusters")+ NoLegend()
-p10 <- LabelClusters(p10, id="atlas_predicted_clusters")
-
-p11 <- DimPlot(all_data.combined, reduction="tsne", group.by = "seurat_clusters")+ NoLegend()
-p11 <- LabelClusters(p11, id="seurat_clusters")
-
-p12 <- DimPlot(all_data.combined, reduction="tsne", group.by = "atlas_predicted_clusters_numbers_convert") + NoLegend()
-p12 <- LabelClusters(p12, id = "atlas_predicted_clusters_numbers_convert")
-
-p11
-
-p12
-#map(strsplit(all_data.combined@meta.data$atlas_predicted_clusters_numbers_convert, split = " : "), 1)
-
-#ggsave(filename = '/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/figures_and_tables/figures/fig1a1.svg', plot = p10, height = 7, width = 21)
-#ggsave(filename = '/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/figures_and_tables/figures/fig1a2.svg', plot = p11, height = 7, width = 21)
-#ggsave(filename = '/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/figures_and_tables/figures/fig1a3.svg', plot = p12, height = 7, width = 21)
-
-#ggsave(filename = '/Users/jwalla12/Repositories/dennery_scrna/scRNAsep2q/figures_and_tables/fig1a2.png', plot = p11, width = 2000, height = 2000, device = 'png', limitsize = FALSE)
-#ggsave(filename = '/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/figures_and_tables/fig1a3.png', plot = p12, width = 2000, height = 2000, device = 'png', limitsize = FALSE)
-
 ```{r Get more info per each gene}
 #all_data.combined <- readRDS("/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/all_data.combined.RDS")
 
 # get a list of all the genes in the Seurat object.
-all_genes <- data.frame(rownames(all_data.combined)) %>% rename(rownames.all_data.combined. = "mgi_symbol")
+all_genes <- data.frame(rownames(all_data.combined))
+all_genes$mgi_symbol <- all_genes$rownames.all_data.combined.
+all_genes$rownames.all_data.combined. <- NULL
+
 mouse_biomart <- useMart("ensembl", dataset = "mmusculus_gene_ensembl")
-mouse_biomart_data <- getBM(mart = mouse_biomart, attributes = c("mgi_description", "mgi_symbol", "kegg_enzyme", "name_1006"))
+mouse_biomart_data <- getBM(mart = mouse_biomart, attributes = c("mgi_description", "mgi_symbol"))
 all_genes_bm <- right_join(mouse_biomart_data, all_genes)
 
-#saveRDS(all_genes_bm, "/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/all_genes_bm.RDS")
+saveRDS(all_genes_bm, "all_genes_bm_aug2021.RDS")
 #all_genes_bm <- readRDS("/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/all_genes_bm.RDS")
 
 ```
 
-```{r Try making some more compelling featureplots}
-
-#grep('Spc', rownames(all_data.combined), value = TRUE)
-library('plyr')
-
-features <- c('Spock2', 'Alas2', 'Tkt', 'Malat1', 'Cftr','Spc24', 'Spc25')
+```{r Try making some more compelling featureplots for the genes Hongwei suggested}
+#Please see below the gene list which can be used for identification of senescence. 
+#Gene list of senescence:
+#Cdkn1a (encoding p21 protein), cdkn2a (encoding p14, p16, and p19 proteins), cdkn2b (encoding p15 protein), p53, Rb, e2f.
+#We may also want to see genes (ki67, pcna) of proliferation, which is usually decreased in senescent cells.
+#Some genes including sirt1, sirt3, sirt6, lmnb1, egr1, ezh2 are also associated with senescence
+#Genes of senescence-associated secretory phenotype (SASP) include IL-1, IL-6, IL-10, PAI1, TNF-α, CXCL1/KC, CXCL2, CCL3, CCL2, and CCL2/MCP-1, MMP3, 
+cdkn <- grep('cdkn', all_genes_bm$mgi_symbol, ignore.case = T, value = TRUE)
+p53 <- grep('p53', all_genes_bm$mgi_symbol, ignore.case = T, value = TRUE)
+#didn't find 'Rb'
+e2f <- grep('e2f', all_genes_bm$mgi_symbol, ignore.case = T, value = TRUE)
+ki67 <- grep('ki67', all_genes_bm$mgi_symbol, ignore.case = T, value = TRUE)
+pcna <- grep('pcna', all_genes_bm$mgi_symbol, ignore.case = T, value = TRUE)
+#didn't find 'Sirt'
+lmnb1 <- grep('lmnb1', all_genes_bm$mgi_symbol, ignore.case = T, value = TRUE)
+egr1 <- grep('egr1', all_genes_bm$mgi_symbol, ignore.case = T, value = TRUE)
+ezh2 <- grep('ezh2', all_genes_bm$mgi_symbol, ignore.case = T, value = TRUE)
+il6 <-'Il6'
+il1 <- c('Il1a','Il1b')  
+il10 <- c('Il10rb', 'Il10ra')
+#serpine is synonym for pai1 http://www.informatics.jax.org/marker/MGI:97608
+serpine1 <- grep('Serpine1', all_genes_bm$mgi_symbol, ignore.case = T, value = TRUE)
+tnfs <- grep('tnf', all_genes_bm$mgi_symbol, ignore.case = T, value = TRUE)
+cxc <- grep('cxc', all_genes_bm$mgi_symbol, ignore.case = T, value = TRUE)
+ccl <- grep('ccl', all_genes_bm$mgi_symbol, ignore.case = T, value = TRUE)
+mmp <- grep('mmp', all_genes_bm$mgi_symbol, ignore.case = T, value = TRUE)
 
 DefaultAssay(all_data.combined) <- 'SCT'
-Idents(all_data.combined) <- 'orig.ident'
+Idents(all_data.combined) <- 'seurat_clusters'
                         
 O2D7_seurat <- subset(all_data.combined, orig.ident == 'O2D7')
 AirD7_seurat <- subset(all_data.combined, orig.ident == 'AirD7')
+SD7_seurat <- subset(all_data.combined, orig.ident == 'SD7')
 O2D60_seurat <- subset(all_data.combined, orig.ident == 'O2D60')
 AirD60_seurat <- subset(all_data.combined, orig.ident == 'AirD60')
 
-AT2_seurat <- subset(all_data.combined, seurat_clusters == '3' | seurat_clusters == '11' | seurat_clusters == '13'| seurat_clusters == '22'| seurat_clusters == '27')                        
-at2_tsne <- DimPlot(AT2_seurat, reduction = 'tsne', group.by = 'seurat_clusters', split.by = 'orig.ident', ncol = 4) & theme(text = element_text(size=20), axis.text.y = element_text(size=20))
 
-at2_tsne
-#ggsave('tsne_3-11-13-22-17.pdf', plot = at2_tsne, height = 4, width = 10)
-
-AT2_O2D7_seurat <- subset(AT2_seurat, orig.ident == 'O2D7')
-AT2_AirD7_seurat <- subset(AT2_seurat, orig.ident == 'AirD7')
-AT2_O2D60_seurat <- subset(AT2_seurat, orig.ident == 'O2D60')
-AT2_AirD60_seurat <- subset(AT2_seurat, orig.ident == 'AirD60')
-
-#this first one is to just get a scale bar for spock
-spock_legend <- FeaturePlot(AT2_AirD7_seurat, features = features[1], reduction = 'tsne')& theme(text = element_text(size=20), axis.text.y = element_text(size=20)) & scale_colour_gradientn(limits= c(0,2.5), colors = c('bisque', 'darkred'))
-
-spock_plot <- FeaturePlot(AT2_seurat, ncol = 4, split.by = 'orig.ident', features = features[1], reduction = 'tsne') & scale_colour_gradientn(limits= c(0,2.5), colors = c('bisque', 'darkred'))
-
-#ggsave('spock_plot.pdf', plot = spock_plot, height = 4, width = 10)
-#ggsave('spock_legend.pdf', plot = spock_legend, height = 4, width = 10)
-
-#this first one is to just get a scale bar for alas2
-alas2_legend <- FeaturePlot(AT2_O2D60_seurat, features = features[2], reduction = 'tsne')& theme(text = element_text(size=20), axis.text.y = element_text(size=20)) & scale_colour_gradientn(limits= c(0,2), colors = c('bisque', 'darkred'))
-
-alas2_plot <- FeaturePlot(AT2_seurat, ncol = 4, split.by = 'orig.ident', features = features[2], reduction = 'tsne') & scale_colour_gradientn(limits= c(0,2), colors = c('bisque', 'darkred'))
-
-#ggsave('alas2_plot.pdf', plot = alas2_plot, height = 4, width = 10)
-#ggsave('alas2_legend.pdf', plot = alas2_legend, height = 4, width = 10)
-
-#this first one is to just get a scale bar for tkt
-tkt_legend <- FeaturePlot(AT2_AirD60_seurat, features = features[3], reduction = 'tsne') & theme(text = element_text(size=20), axis.text.y = element_text(size=20)) & scale_colour_gradientn(limits= c(0,2), colors = c('bisque', 'darkred'))
-
-tkt_plot <- FeaturePlot(AT2_seurat, ncol = 4, split.by = 'orig.ident', features = features[3], reduction = 'tsne') & scale_colour_gradientn(limits= c(0,2), colors = c('bisque', 'darkred'))
-
-ggsave('tkt_plot.pdf', plot = tkt_plot, height = 4, width = 10)
-ggsave('tkt_legend.pdf', plot = tkt_legend, height = 4, width = 10)
+Idents(O2D7_seurat) <- 'seurat_clusters'
+Idents(AirD7_seurat) <- 'seurat_clusters'
+Idents(SD7_seurat ) <- 'seurat_clusters'
+Idents(O2D60_seurat) <- 'seurat_clusters'
+Idents(AirD60_seurat) <- 'seurat_clusters'
 
 
-#this first one is to just get a scale bar for Malat1
-malat1_legend <- FeaturePlot(AT2_O2D60_seurat, features = features[4], reduction = 'tsne') & theme(text = element_text(size=20), axis.text.y = element_text(size=20)) & scale_colour_gradientn(limits= c(0,6), colors = c('bisque', 'darkred'))
+featureplot_grid <- function(feats, pwidth, pheight, plotfile){
+  p_aird7 <- FeaturePlot(AirD7_seurat, 
+                            label = TRUE, 
+                            label.size = 6, 
+                            repel = F, 
+                            sort = TRUE, 
+                            features = feats, 
+                            ncol = length(feats), 
+                            reduction = 'tsne') &
+  scale_colour_gradientn(limits= c(0,8), 
+                         colors = c('bisque', 'darkred')) &
+  labs(subtitle = 'Air D7')
 
-malat1_plot <- FeaturePlot(AT2_seurat, ncol = 4, split.by = 'orig.ident', features = features[4], reduction = 'tsne') & scale_colour_gradientn(limits= c(0,6), colors = c('bisque', 'darkred'))
+p_o2d7 <- FeaturePlot(O2D7_seurat, 
+                            label = TRUE, 
+                            label.size = 6, 
+                            repel = F, 
+                            sort = TRUE, 
+                            features = feats, 
+                            ncol = length(feats), 
+                            reduction = 'tsne') &
+  scale_colour_gradientn(limits= c(0,8), 
+                         colors = c('bisque', 'darkred')) &
+  labs(subtitle = 'O2 D7')
 
-ggsave('malat1_plot.pdf', plot = malat1_plot, height = 4, width = 10)
-ggsave('malat1_legend.pdf', plot = malat1_legend, height = 4, width = 10)
+p_sd7 <- FeaturePlot(SD7_seurat, 
+                            label = TRUE, 
+                            label.size = 6, 
+                            repel = F, 
+                            sort = TRUE, 
+                            features = feats, 
+                            ncol = length(feats), 
+                            reduction = 'tsne') &
+  scale_colour_gradientn(limits= c(0,8), 
+                         colors = c('bisque', 'darkred')) &
+  labs(subtitle = 'S D7')
+
+p_aird60 <- FeaturePlot(AirD60_seurat, 
+                            label = TRUE, 
+                            label.size = 6, 
+                            repel = F, 
+                            sort = TRUE, 
+                            features = feats, 
+                            ncol = length(feats), 
+                            reduction = 'tsne') &
+  scale_colour_gradientn(limits= c(0,8), 
+                         colors = c('bisque', 'darkred')) &
+  labs(subtitle = 'Air D60')
+
+p_o2d60 <- FeaturePlot(O2D60_seurat, 
+                            label = TRUE, 
+                            label.size = 6, 
+                            repel = F, 
+                            sort = TRUE, 
+                            features = feats, 
+                            ncol = length(feats), 
+                            reduction = 'tsne') &
+  scale_colour_gradientn(limits= c(0,8), 
+                         colors = c('bisque', 'darkred')) &
+  labs(subtitle = 'O2 D60')
 
 
+plots <- p_aird7 / p_o2d7 / p_sd7 / p_aird60 / p_o2d60
 
-#this first one is to just get a scale bar for ctfr
-ctfr_legend <- FeaturePlot(AT2_AirD60_seurat, features = features[5], reduction = 'tsne') & theme(text = element_text(size=20), axis.text.y = element_text(size=20)) & scale_colour_gradientn(limits= c(0,1.6), colors = c('bisque', 'darkred'))
-
-ctfr_plot <- FeaturePlot(AT2_seurat, ncol = 4, split.by = 'orig.ident', features = features[5], reduction = 'tsne') & scale_colour_gradientn(limits= c(0,1.6), colors = c('bisque', 'darkred'))
-
-ggsave('ctfr_plot.pdf', plot = ctfr_plot, height = 4, width = 10)
-ggsave('ctfr_legend.pdf', plot = ctfr_legend, height = 4, width = 10)
-
-
-#this first one is to just get a scale bar for spc24
-spc24_legend <- FeaturePlot(AT2_O2D60_seurat, features = features[6], reduction = 'tsne') & theme(text = element_text(size=20), axis.text.y = element_text(size=20)) & scale_colour_gradientn(limits= c(0,1), colors = c('bisque', 'darkred'))
-
-spc24_plot <- FeaturePlot(AT2_seurat, ncol = 4, split.by = 'orig.ident', features = features[6], reduction = 'tsne') & scale_colour_gradientn(limits= c(0,1), colors = c('bisque', 'darkred'))
-
-ggsave('spc24_plot.pdf', plot = spc24_plot, height = 4, width = 10)
-ggsave('spc24_legend.pdf', plot = spc24_legend, height = 4, width = 10)
-
-
-
-#this first one is to just get a scale bar for spc24
-spc25_legend <- FeaturePlot(AT2_AirD7_seurat, features = features[7], reduction = 'tsne') & scale_colour_gradientn(limits= c(0,1), colors = c('bisque', 'darkred'))
-
-spc25_plot <- FeaturePlot(AT2_seurat, ncol = 4, split.by = 'orig.ident', features = features[7], reduction = 'tsne') & scale_colour_gradientn(limits= c(0,1), colors = c('bisque', 'darkred'))
-
-ggsave('spc25_plot.pdf', plot = spc25_plot, height = 4, width = 10)
-ggsave('spc25_legend.pdf', plot = spc25_legend, height = 4, width = 10)
-
+ggsave(plotfile, device = 'png', width = pwidth, height = pheight)
+  
+return(plots)
+}
 ```
 
-```{r Trying out ridge plots and dimplots }
-
-RidgePlot(AT2_seurat, features = features, ncol = 7, group.by = 'seurat_clusters')
-RidgePlot(all_data.combined, features = features, ncol = 7, group.by = 'predicted.ids')
-
-VlnPlot(AT2_seurat, features = features[1])
-
-DotPlot(all_data.combined, features = features, split.by = 'seurat_clusters', cols = c('blue', 'green', 'red', 'orange', 'purple'))
-
-
-RidgePlot(all_data.combined, features = features[4], ncol = 7, group.by = 'atlas_predicted_clusters')
-
-
-DimPlot(AT2_seurat, reduction="tsne", group.by = "atlas_predicted_clusters") 
-FeaturePlot(AT2_seurat)
-#FeaturePlot(O2D60_seurat, ncol = 5, features = features, reduction = 'tsne', cells = c(colnames(AT2_seurat))) & scale_colour_gradientn(limits= c(0,8), colors = c('bisque', 'darkred'))
-
-
-
-
-O2D7_features <- FeaturePlot(O2D7_seurat, ncol = 5, features = features, reduction = 'tsne') & scale_colour_gradientn(limits= c(0,8), colors = c('bisque', 'darkred'))
-AirD7_features <- FeaturePlot(AirD7_seurat, ncol = 5, features = features, reduction = 'tsne') & scale_colour_gradientn(limits= c(0,8), colors = c('bisque', 'darkred'))
-O2D60_features <- FeaturePlot(O2D60_seurat, ncol = 5, features = features, reduction = 'tsne', order = TRUE) & scale_colour_gradientn(limits= c(0,8), colors = c('bisque', 'darkred'))
-AirD60_features <- FeaturePlot(AirD60_seurat, ncol = 5, features = features, reduction = 'tsne') & scale_colour_gradientn(limits= c(0,7), colors = c('bisque', 'darkred'))
-
-
-
-
-
-featuresplots <- AirD7_features + O2D7_features + AirD60_features + O2D60_features
-
-
-ggsave(plot =  AirD7_features, file = 'AirD7_features.pdf', height = 4, width = 20)
-ggsave(plot =  O2D7_features, file = 'O2D7_features.pdf', height = 4, width = 20)
-ggsave(plot =  AirD60_features, file = 'AirD60_features.pdf', height = 4, width = 20)
-ggsave(plot =  O2D60_features, file = 'O2D60_features.pdf', height = 4, width = 20)
-
-
+```{r}
+featureplot_grid(cdkn, pwidth = 30, pheight = 30, 'p_cdkn_fp.png')
+featureplot_grid(p53, pwidth = 6, pheight = 30, 'p_p53_fp.png')
+featureplot_grid(e2f, pwidth = 15, pheight = 30, 'p_e2f_fp.png')
+featureplot_grid(ki67, pwidth = 6, pheight = 30, 'p_ki67_fp.png')
+featureplot_grid(pcna, pwidth = 6, pheight = 30, 'p_pcna_fp.png')
+featureplot_grid(lmnb1, pwidth = 6, pheight = 30, 'p_lmnb1_fp.png')
+featureplot_grid(egr1, pwidth = 6, pheight = 30, 'p_egr1_fp.png')
+featureplot_grid(ezh2, pwidth = 6, pheight = 30, 'p_ezh2_fp.png')
+featureplot_grid(il6, pwidth = 6, pheight = 30, 'p_il6_fp.png')
+featureplot_grid(il1, pwidth = 15, pheight = 30, 'p_il1_fp.png')
+featureplot_grid(il10, pwidth = 15, pheight = 30, 'p_il10_fp.png')
+featureplot_grid(serpine1, pwidth = 6, pheight = 30, 'p_serpine1_fp.png')
+featureplot_grid(tnfs, pwidth = 40, pheight = 30, 'p_tnfs_fp.png')
+featureplot_grid(cxc, pwidth = 40, pheight = 30, 'p_cxc_fp.png')
+featureplot_grid(mmp, pwidth = 40, pheight = 30, 'p_mmp_fp.png')
 ```
 
-```{r try to pull some expression data for specific genes of interest to make some heatmaps}
-sct_counts <- as.matrix(GetAssayData(all_data.combined, assay = 'SCT', slot = 'counts'))
-cluster.averages <- AverageExpression(all_data.combined, assay = 'SCT', slot = 'counts', add.ident = 'seurat_clusters')
-cluster.averages.matrix <- cluster.averages$SCT
-cluster.averages.matrix$gene <- rownames(cluster.averages.matrix)
-cluster.averages_long <- pivot_longer(cluster.averages.matrix, cols = AirD7_28:O2D60_22)
+```{r}
 
-cluster.averages_long <- separate(cluster.averages_long, col = name, into = c('condition','cluster'), sep = '_')
+Idents(all_data.combined) <- 'orig.ident'
 
-#try a fig
+features_list <- c(cdkn, p53, e2f, ki67, pcna, lmnb1, egr1, ezh2, il6, il1, il10, serpine1, tnfs, cxc, mmp)
 
-malat1 <- dplyr::filter(cluster.averages_long, gene == 'Malat1')
-ggplot(malat1 , aes(condition, cluster, fill= value)) + geom_tile()
+all_dotplot <-  DotPlot(all_data.combined, assay = 'SCT',features = features_list ) & theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) & coord_flip()
 
+ggsave('all_dotplot.png', plot = all_dotplot, width = 6)
 
- ggplot(cluster.averages_long, aes(x = condition, y = cluster, fill = value)) +
-  coord_equal()+
-  geom_tile(colour = 'black') + 
-  theme(panel.grid = element_blank(),
-        axis.title.y = element_blank(),
-        axis.title.x = element_blank(),
-        axis.text.x = element_blank(),
-        axis.ticks = element_blank()) +
-  scale_fill_gradientn(
-    colors = c("white", "darkred"))#,
-    limits = c(0,100) +
-  theme(panel.grid = element_blank(),
-        axis.text.x=element_text(angle=90, hjust = 1, vjust = .4),
-        axis.ticks = element_blank(),
-        text = element_text(size=20))
+p_cdkn_dot <- DotPlot(all_data.combined, assay = 'SCT',features = cdkn)
+p_p53_dot <- DotPlot(all_data.combined, assay = 'SCT',features = p53)
+p_e2f_dot <- DotPlot(all_data.combined, assay = 'SCT',features = e2f)
+p_ki67_dot <- DotPlot(all_data.combined, assay = 'SCT',features = ki67)
+p_pcna_dot <- DotPlot(all_data.combined, assay = 'SCT',features = pcna)
+p_lmnb1_dot <- DotPlot(all_data.combined, assay = 'SCT',features = lmnb1)
+p_egr1_dot <- DotPlot(all_data.combined, assay = 'SCT',features = egr1)
+p_ezh2_dot <- DotPlot(all_data.combined, assay = 'SCT',features = ezh2)
+p_il6_dot <- DotPlot(all_data.combined, assay = 'SCT',features = il6)
+p_il1_dot <- DotPlot(all_data.combined, assay = 'SCT',features = il1)
+p_il10_dot <- DotPlot(all_data.combined, assay = 'SCT',features = il10)
+p_serpine1_dot <- DotPlot(all_data.combined, assay = 'SCT',features = serpine1)
 
-
+p_tnfs_dot <- DotPlot(all_data.combined, assay = 'SCT',features = tnfs)
+p_cxc_dot <- DotPlot(all_data.combined, assay = 'SCT',features = cxc)
+p_mmp_dot <- DotPlot(all_data.combined, assay = 'SCT',features = mmp)
 
 ```
+```{r}
+ggsave(filename = 'p_cdkn_dot.png', plot = p_cdkn_dot, device = 'png', width = 12)
+ggsave(filename = 'p_p53_dot.png', plot = p_p53_dot, device = 'png', width = 12)
+ggsave(filename = 'p_e2f_dot.png', plot = p_e2f_dot, device = 'png', width = 12)
+ggsave(filename = 'p_ki67_dot.png', plot = p_ki67_dot, device = 'png', width = 12)
+ggsave(filename = 'p_pcna_dot.png', plot = p_pcna_dot, device = 'png', width = 12)
+ggsave(filename = 'p_lmnb1_dot.png', plot = p_lmnb1_dot, device = 'png', width = 12)
+ggsave(filename = 'p_egr1_dot.png', plot = p_egr1_dot, device = 'png', width = 12)
+ggsave(filename = 'p_ezh2_dot.png', plot = p_ezh2_dot, device = 'png', width = 12)
+ggsave(filename = 'p_il6_dot.png', plot = p_il6_dot, device = 'png', width = 12)
+ggsave(filename = 'p_il1_dot.png', plot = p_il1_dot, device = 'png', width = 12)
+ggsave(filename = 'p_il10_dot.png', plot = p_il10_dot, device = 'png', width = 12)
+ggsave(filename = 'p_serpine1_dot.png', plot = p_serpine1_dot, device = 'png', width = 12)
+ggsave(filename = 'p_tnfs_dot.png', plot = p_tnfs_dot, device = 'png', width = 12)
+ggsave(filename = 'p_cxc_dot.png', plot = p_cxc_dot, device = 'png', width = 12)
+ggsave(filename = 'p_mmp_dot.png', plot = p_mmp_dot, device = 'png', width = 12)
+```
 
+```{r compare clusters and annots}
+atlas_plot <- DimPlot(all_data.combined, reduction="tsne", group.by = "atlas_predicted_clusters_short", split.by = 'orig.ident', label = TRUE, label.size = 3, repel = T) 
+seurat_plot <-  DimPlot(all_data.combined, reduction="tsne", group.by = "seurat_clusters", split.by = 'orig.ident', label = TRUE, label.size = 3, repel = T) 
 
+seurat_v_atlas <- seurat_plot / atlas_plot
+
+ggsave(filename = 'seurat_v_atlas.png', plot = p_cdkn_dot, device = 'png', width = 30)
+```
+ 
 ```{r How well do the Seurat clusters and the predicted clusters correspond?}
-concordance <- data.frame(x=all_data.combined$atlas_predicted_clusters, y=all_data.combined$seurat_clusters)
+concordance <- data.frame(x=all_data.combined$atlas_predicted_clusters_short, y=all_data.combined$seurat_clusters)
 
 normalize <- function(x) {
 return ((x - min(x)) / (max(x) - min(x)))
@@ -591,16 +496,13 @@ conc_plot_count_spread <-  conc_plot_count_spread %>%
   rename_with(.cols = 40, ~"seurat_38") %>%
   rename_with(.cols = 41, ~"seurat_39") %>%
   rename_with(.cols = 42, ~"seurat_40") %>% 
-  rename_with(.cols = 43, ~"seurat_41") %>%
-  rename_with(.cols = 44, ~"seurat_42") %>%
-  rename_with(.cols = 45, ~"seurat_43") %>%
-  rename_with(.cols = 46, ~"seurat_44") 
+  rename_with(.cols = 43, ~"seurat_41")
 
 conc_plot_count_spread_df <- data.frame(conc_plot_count_spread)
 rownames(conc_plot_count_spread_df) <- conc_plot_count_spread_df$mca
 conc_plot_count_spread_df_relative_to_seurat <- conc_plot_count_spread_df %>% mutate_if(is.numeric, funs(./sum(.)))
 
-conc_plot_count_spread_df_relative_to_seurat_long <- pivot_longer(conc_plot_count_spread_df_relative_to_seurat, cols = seurat_0:seurat_44)
+conc_plot_count_spread_df_relative_to_seurat_long <- pivot_longer(conc_plot_count_spread_df_relative_to_seurat, cols = seurat_0:seurat_41)
 
 unique(conc_plot_count_spread_df_relative_to_seurat_long$name)
 
@@ -631,28 +533,11 @@ conc_plot_count_spread_df_relative_to_seurat_long_filt$seurat <- str_replace_all
 
 table <- tableGrob(conc_plot_count_spread_df_relative_to_seurat_long_filt, cols = NULL, rows = NULL, theme =ttheme_default())
 figure <- grid.arrange(table)
-
-#ggsave(plot = figure, file = 'figure2b2.png', width = 10, height = 10, units = 'in')
-
-conc_plot <- ggplot(conc_plot_data, aes(x, y, fill = value)) +
-  geom_tile(colour = 'black') + 
-  theme(panel.grid = element_blank(),
-        axis.title.y = element_blank(),
-        axis.title.x = element_blank(),
-        axis.text.x = element_blank(),
-        axis.ticks = element_blank()) +
-  scale_fill_gradientn(
-    colors = c("white", "darkred"),
-    limits = range(conc_plot_data$value)) +
-  theme(panel.grid = element_blank(),
-        axis.text.x=element_text(angle=90),
-        axis.ticks = element_blank())
-
-#write.table(conc_plot_count_spread_df, '/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/seurat_by_mca.txt', sep = '\t')
-#write.table(conc_plot_count_spread_df_relative_to_seurat_long_filt, '/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/conc_plot_table.txt', sep = '\t', row.names=F)
 ```
 
-```{r make a table to go w conc plot:}
+#make a table to go w conc plot
+
+```{r make a table to go w conc plot}
 #make a table to go w conc plot:
 
 conc_table <- data.frame(cbind(all_data.combined$atlas_predicted_clusters, 
@@ -670,32 +555,69 @@ conc_table_sep <- conc_table %>%
   summarize(clusters_per_type = paste(as.character(seurat_clusters), collapse = ','))
 ```
 
+```{r}
+write.csv(conc_plot_count_spread, 'conc_plot_count_spread.csv', row.names = F)
+write.csv(conc_table_sep, 'conc_table_sep.csv', row.names = F)
 
-```{r This section is where we find markers distinguishing the clusters.. there's more further down in the notebook}
+```
 
-Idents(all_data.combined) <- all_data.combined$seurat_clusters
+
+
+```{r This section is where we find markers distinguishing the clusters only in SD7}
+
+SD7_seurat
+
+Idents(SD7_seurat) <- SD7_seurat$seurat_clusters
 # find markers for every cluster compared to all remaining cells, report only the positive ones
-all_data.combined.markers.sct <- FindAllMarkers(all_data.combined, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25, assay = 'SCT')
-#all_data.combined.markers.integrated <- FindAllMarkers(all_data.combined, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25, assay = 'integrated')
+SD7_seurat.markers <- FindAllMarkers(SD7_seurat, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25, assay = 'SCT')
+
 
 # Add the gene information to each cluster..
-all_data.combined.markers.sct <- left_join(all_data.combined.markers.sct, all_genes_bm, by = c('gene' = 'mgi_symbol'))
-#all_data.combined.markers.integrated <- left_join(all_data.combined.markers.integrated, all_genes_bm, by = c('gene' = 'mgi_symbol'))
+SD7_seurat.markers <- left_join(SD7_seurat.markers, all_genes_bm, by = c('gene' = 'mgi_symbol'))
+```
+```{r}
 #split up the markers by cluster..
-cluster_levels <- levels(all_data.combined.markers.sct$cluster)
-all_data.combined.markers.sct.split <- lapply(seq_along(cluster_levels), function(i) all_data.combined.markers.sct %>% dplyr::filter(cluster == cluster_levels[i]))
-all_data.combined.markers.integrated.split <- lapply(seq_along(cluster_levels), function(i) all_data.combined.markers.integrated %>% dplyr::filter(cluster == cluster_levels[i]))
+cluster_levels <- levels(SD7_seurat.markers$cluster)
+SD7_seurat.markers.split <- lapply(seq_along(cluster_levels), function(i) SD7_seurat.markers%>% dplyr::filter(cluster == cluster_levels[i]))
+
+#install.packages('xlsx')
+library(xlsx)
+file <- paste("SD7_seurat_markers.xlsx", sep = "")
+
+write.xslx(SD7_seurat.markers.split[[1]],file, sheetName = 'cluster0')
+write.xslx(SD7_seurat.markers.split[[2]], file, sheetName = 'cluster1', append = TRUE)
+write.xslx(SD7_seurat.markers.split[[3]], file, sheetName = 'cluster4', append = TRUE)
+write.xslx(SD7_seurat.markers.split[[4]], file, sheetName = 'cluster5', append = TRUE)
+write.xslx(SD7_seurat.markers.split[[5]], file, sheetName = 'cluster6', append = TRUE)
+write.xslx(SD7_seurat.markers.split[[6]], file, sheetName = 'cluster7', append = TRUE)
+write.xslx(SD7_seurat.markers.split[[7]], file, sheetName = 'cluster8', append = TRUE)
+write.xslx(SD7_seurat.markers.split[[8]], file, sheetName = 'cluster10', append = TRUE)
+write.xslx(SD7_seurat.markers.split[[9]], sheetName = 'cluster13', append = TRUE)
+write.xslx(SD7_seurat.markers.split[[10]], sheetName = 'cluster14', append = TRUE)
+write.xslx(SD7_seurat.markers.split[[11]], sheetName = 'cluster16', append = TRUE)
+write.xslx(SD7_seurat.markers.split[[12]], sheetName = 'cluster17', append = TRUE)
+write.xslx(SD7_seurat.markers.split[[13]], sheetName = 'cluster20', append = TRUE)
+write.xslx(SD7_seurat.markers.split[[14]], sheetName = 'cluster21', append = TRUE)
+write.xslx(SD7_seurat.markers.split[[15]], sheetName = 'cluster23', append = TRUE)
+write.xslx(SD7_seurat.markers.split[[16]], sheetName = 'cluster25', append = TRUE)
+write.xslx(SD7_seurat.markers.split[[17]], sheetName = 'cluster27', append = TRUE)
+write.xslx(SD7_seurat.markers.split[[18]], sheetName = 'cluster29', append = TRUE)
+write.xslx(SD7_seurat.markers.split[[19]], sheetName = 'cluster30', append = TRUE)
+write.xslx(SD7_seurat.markers.split[[20]], sheetName = 'cluster31', append = TRUE)
+write.xslx(SD7_seurat.markers.split[[21]], sheetName = 'cluster36', append = TRUE)
+write.xslx(SD7_seurat.markers.split[[22]], sheetName = 'cluster39', append = TRUE)
+
 
 
 #doing some filtering to look at just the 'top markers', but probably want to only use these for making figures.
-top5_markers <- all_data.combined.markers.sct %>% group_by(cluster) %>% top_n(n = 5, wt = avg_logFC)
+top5_markers <- SD7_seurat.markers %>% group_by(cluster) %>% top_n(n = 5, wt = avg_logFC)
 
 top5_markers$rank <- rep(1:5, length.out = nrow(top5_markers))
 
 clust_plot <- ggplot(top5_markers, aes(x = rank, y = cluster, fill = avg_logFC)) + 
   geom_tile() +
   theme(panel.grid = element_blank(),
-        axis.title.y = element_blank(),
+        axis.title.y = 'top 5 marker genes',
         axis.title.x = element_blank(),
         axis.text.x = element_blank(),
         axis.ticks = element_blank()) +
@@ -704,7 +626,54 @@ clust_plot <- ggplot(top5_markers, aes(x = rank, y = cluster, fill = avg_logFC))
   scale_fill_gradientn(
     colors = c("white", "purple3"),
     limits = range(top5_markers$avg_logFC)) +
-  theme_minimal()
+  theme_minimal() 
+ggsave(plot = clust_plot, filename = 'clust_plot.png', width = 8) 
+```
+
+```{r}
+#save.image(file='sept2021.RData')
+#load('sept2021)
+```
+```{r}
+
+all_data.combined_df <- data.frame(x = all_data.combined$atlas_predicted_clusters, y = all_data.combined$orig.ident)
+# Get number of cells per cluster and per sample of origin
+cell_types_per_ident <- table(all_data.combined@meta.data$atlas_predicted_clusters_short, all_data.combined@meta.data$orig.ident)
+cell_types_per_ident_df <- as.data.frame(cell_types_per_ident) %>% pivot_wider(names_from = 'Var2', values_from = 'Freq')
+cell_types_per_ident_df <- data.frame(cell_types_per_ident_df)
+
+
+# Get number of cells per cluster and per sample of origin
+cell_types_per_ident2 <- table(all_data.combined@meta.data$seurat_clusters, all_data.combined@meta.data$orig.ident)
+cell_types_per_ident2_df <- as.data.frame(cell_types_per_ident2) %>% pivot_wider(names_from = 'Var2', values_from = 'Freq')
+cell_types_per_ident2_df <- data.frame(cell_types_per_ident2_df)
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ```
 
 
