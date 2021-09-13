@@ -22,31 +22,19 @@ library(stringr)
 library(tidyr)
 library(gridExtra)
 library(data.table)
+library(xlsx)
 set.seed(61)
 options(future.globals.maxSize = 4000 * 1024^2)
-```
-
-```{r}
-#saveRDS(all_data.combined, file = "/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/all_data.combined.RDS")
-#all_data.combined <- readRDS(file = "/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/all_data.combined.RDS")
-#all_genes_bm <- readRDS("/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/all_genes_bm.RDS")
-#mca.matrix <- readRDS(file = "./MCA/MCA_merged_mat.rds")
-#mca.matrix.lung <- mca.matrix[,grepl("^Lung_", colnames(mca.matrix))]
-#all_data.combined@meta.data$atlas_predicted_clusters_short <- all_data.combined@meta.data$atlas_predicted_clusters_short[,grepl("^Lung_", colnames(mca.matrix))]
-#all_data.combined$atlas_predicted_clusters <- str_replace(all_data.combined$atlas_predicted_clusters, pattern = 'Clara', replacement = 'Club')
-#all_data.combined$predicted.id <- str_replace(all_data.combined$predicted.id, pattern = 'Clara', replacement = 'Club')
-#colnames(all_data.combined@meta.data) <- str_replace(colnames(all_data.combined@meta.data), pattern = 'Clara', replacement = 'Club')
-
 ```
 
 ```{r Data import and merging}
 # These lines don't work if run as part of a markdown code chunk, instead copy and paste them run into the rstudio console and them them there. them via the R console in RStudio (this seems to be an rstudio bug).
 # Read in data
-AirD7.data <- Read10X(data.dir ="/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/AirD7out/filtered_feature_bc_matrix/")
-AirD60.data <- Read10X(data.dir ="/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/AirD60out/filtered_feature_bc_matrix/")
-O2D7.data <- Read10X(data.dir ="/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/O2D7out/filtered_feature_bc_matrix/")
-O2D60.data <- Read10X(data.dir ="/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/O2D60out/filtered_feature_bc_matrix/")
-#SD7.data <- Read10X(data.dir ="./SD7out/filtered_feature_bc_matrix/")
+AirD7.data <- Read10X(data.dir ="AirD7out/filtered_feature_bc_matrix/")
+AirD60.data <- Read10X(data.dir ="AirD60out/filtered_feature_bc_matrix/")
+O2D7.data <- Read10X(data.dir ="O2D7out/filtered_feature_bc_matrix/")
+O2D60.data <- Read10X(data.dir ="O2D60out/filtered_feature_bc_matrix/")
+SD7.data <- Read10X(data.dir ="SD7out/filtered_feature_bc_matrix/")
 
 # Create Seurat objects
 #Include features (e.g. genes) detected in at least 3 cells and cells with at least 200 features.
@@ -55,21 +43,19 @@ AirD7.data <- CreateSeuratObject(counts = AirD7.data,  project = "AirD7",min.cel
 O2D7.data <- CreateSeuratObject(counts = O2D7.data,  project = "O2D7",min.cells = 3, min.features = 200)
 AirD60.data <- CreateSeuratObject(counts = AirD60.data,  project = "AirD60",min.cells = 3, min.features = 200)
 O2D60.data <- CreateSeuratObject(counts = O2D60.data,  project = "O2D60",min.cells = 3, min.features = 200)
-#SD7.data <- CreateSeuratObject(counts = SD7.data,  project = "SD7",min.cells = 3, min.features = 200)
+SD7.data <- CreateSeuratObject(counts = SD7.data,  project = "SD7",min.cells = 3, min.features = 200)
 
 # Merge the data
-#all_data <- merge(x = AirD7.data, y = c(O2D7.data, SD7.data, AirD60.data, O2D60.data), add.cell.ids = c("AirD7", "O2D7", "SD7", "AirD60", "O2D60"), project = 'dennery')
-all_data <- merge(x = AirD7.data, y = c(O2D7.data, AirD60.data, O2D60.data), add.cell.ids = c("AirD7", "O2D7", "AirD60", "O2D60"), project = 'dennery')
+all_data <- merge(x = AirD7.data, y = c(O2D7.data, SD7.data, AirD60.data, O2D60.data), add.cell.ids = c("AirD7", "O2D7", "SD7", "AirD60", "O2D60"), project = 'dennery')
 
-```
-
-```{r QC Plots}
 # Calculate the percentage of counts that belong to mitochondrial genes
 all_data[["percent.mt"]] <- PercentageFeatureSet(all_data, pattern = "^mt-")
 
 #Set levels
 Idents(all_data) <- factor(Idents(all_data), levels = c("AirD7","O2D7","SD7", "AirD60", "O2D60"))
+```
 
+```{r QC Plots}
 # QC Plots
 VlnPlot(all_data, features = "nFeature_RNA")
 VlnPlot(all_data, features = "nCount_RNA")
@@ -112,19 +98,23 @@ wrapped_filtering <- wrap_plots(mplot, ident_plot, ncol = 2, guides = "collect")
 wrapped_filtering
 ```
 
-```{r Filtering and normalization}
+```{r Filtering}
 
 # Using a 5% mtDNA cutoff... as per https://www.biorxiv.org/content/10.1101/2020.02.20.958793v1.full.pdf
 all_data_sub <- subset(all_data, subset = nFeature_RNA > 700 & nFeature_RNA < 8000 & percent.mt < 5)
 
 all_data #20755 features across 16013 samples within 1 assay
 all_data_sub #20755 features across 13199 samples within 1 assay 
+```
 
-# Post-filtering  QC plots
+```{r Post-filtering  QC plots}
 
 FeatureScatter(all_data_sub, feature1 = "nCount_RNA", feature2 = "percent.mt")
 FeatureScatter(all_data_sub, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+```
 
+
+```{r Normalization}
 # SCTransform to normalize, integrate, make some plots
 #https://github.com/ChristophH/sctransform/issues/25 for explanation of why I'm not worried about 'iteration limit reached' warning messages.
 all_data.list <- SplitObject(all_data_sub, split.by="orig.ident")
@@ -152,7 +142,7 @@ all_data.combined <- RunTSNE(all_data.combined, dims=1:50, nthreads=4, max_iter=
 
 ```
 
-```{r Import Mouse cell atlas data and use it to annotate the data}
+```{r Import Mouse cell atlas data}
 # MCA
 #From https://satijalab.org/seurat/v3.1/mca.html vignette...
 
@@ -175,11 +165,13 @@ rownames(mca.metadata.annotations) <- mca.metadata.annotations$Cell.name
 mca.metadata.annotations <- mca.metadata.annotations %>% dplyr::select(-Cell.name)
 
 mca.matrix.lung <- mca.matrix[,grepl("^Lung_", colnames(mca.matrix))]
+mca <- CreateSeuratObject(counts = mca.matrix.lung, meta.data = mca.metadata.annotations, project = "MouseCellAtlas")
+
+saveRDS(mca, file = "mca_sept_2021.rds")
+saveRDS(all_data.combined, file = "all_data.combined_sept_2021.rds")
 ```
 
-```{r Normalize, transfer anchors}
-
-mca <- CreateSeuratObject(counts = mca.matrix.lung, meta.data = mca.metadata.annotations, project = "MouseCellAtlas")
+```{r Normalize mca, transfer anchors}
 # Only keep annotated cells
 mca <- SCTransform(mca)
 # Leaves us with 242k cells
@@ -194,6 +186,10 @@ all_data.combined$atlas_predicted_clusters <- sapply(sapply(all_data.combined$pr
 
 all_data.combined@meta.data$atlas_predicted_clusters_short <- str_replace(all_data.combined@meta.data$atlas_predicted_clusters, pattern = "\\(Lung\\)", replacement = "")
 
+
+saveRDS(mca, file = "mca_sept_2021.rds")
+saveRDS(all_data.combined, file = "all_data.combined_sept_2021.rds")
+
 ```
 
 ```{r Fix 'Clara' to 'Club'}
@@ -203,10 +199,15 @@ all_data.combined$predicted.id <- str_replace(all_data.combined$predicted.id, pa
 all_data.combined$atlas_predicted_clusters_short <- str_replace(all_data.combined$atlas_predicted_clusters_short, pattern = 'Clara', replacement = 'Club')
 colnames(all_data.combined@meta.data) <- str_replace(colnames(all_data.combined@meta.data), pattern = 'Clara', replacement = 'Club')
 
+all_data.combined$orig.ident <- factor( x = all_data.combined$orig.ident, levels = c("AirD7", "O2D7", "SD7",  "AirD60", "O2D60"))
+
+saveRDS(mca, file = "mca_sept_2021.rds")
+saveRDS(all_data.combined, file = "all_data.combined_sept_2021.rds")
+
+
 ```
 
 ```{r Look at TSNE plots and compare mca vs seurat clusters}
-all_data.combined$orig.ident <- factor( x = all_data.combined$orig.ident, levels = c("AirD7", "O2D7", "SD7",  "AirD60", "O2D60"))
 
 p1 <- DimPlot(all_data.combined, reduction="tsne", group.by = "atlas_predicted_clusters") 
 p1 <- LabelClusters(p1, id="atlas_predicted_clusters", repel=TRUE)
@@ -231,7 +232,6 @@ p4
 ```
 
 ```{r Get more info per each gene}
-#all_data.combined <- readRDS("/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/all_data.combined.RDS")
 
 # get a list of all the genes in the Seurat object.
 all_genes <- data.frame(rownames(all_data.combined))
@@ -242,12 +242,15 @@ mouse_biomart <- useMart("ensembl", dataset = "mmusculus_gene_ensembl")
 mouse_biomart_data <- getBM(mart = mouse_biomart, attributes = c("mgi_description", "mgi_symbol"))
 all_genes_bm <- right_join(mouse_biomart_data, all_genes)
 
-saveRDS(all_genes_bm, "all_genes_bm_aug2021.RDS")
+saveRDS(all_genes_bm, "all_genes_bm.rds")
 #all_genes_bm <- readRDS("/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/all_genes_bm.RDS")
 
 ```
 
 ```{r Try making some more compelling featureplots for the genes Hongwei suggested}
+
+all_genes_bm <- readRDS('all_genes_bm.RDS')
+
 #Please see below the gene list which can be used for identification of senescence. 
 #Gene list of senescence:
 #Cdkn1a (encoding p21 protein), cdkn2a (encoding p14, p16, and p19 proteins), cdkn2b (encoding p15 protein), p53, Rb, e2f.
@@ -359,9 +362,7 @@ ggsave(plotfile, device = 'png', width = pwidth, height = pheight)
   
 return(plots)
 }
-```
 
-```{r}
 featureplot_grid(cdkn, pwidth = 30, pheight = 30, 'p_cdkn_fp.png')
 featureplot_grid(p53, pwidth = 6, pheight = 30, 'p_p53_fp.png')
 featureplot_grid(e2f, pwidth = 15, pheight = 30, 'p_e2f_fp.png')
@@ -379,7 +380,7 @@ featureplot_grid(cxc, pwidth = 40, pheight = 30, 'p_cxc_fp.png')
 featureplot_grid(mmp, pwidth = 40, pheight = 30, 'p_mmp_fp.png')
 ```
 
-```{r}
+```{r Make a dotplot of Hongwei's genes of interest}
 
 Idents(all_data.combined) <- 'orig.ident'
 
@@ -406,8 +407,6 @@ p_tnfs_dot <- DotPlot(all_data.combined, assay = 'SCT',features = tnfs)
 p_cxc_dot <- DotPlot(all_data.combined, assay = 'SCT',features = cxc)
 p_mmp_dot <- DotPlot(all_data.combined, assay = 'SCT',features = mmp)
 
-```
-```{r}
 ggsave(filename = 'p_cdkn_dot.png', plot = p_cdkn_dot, device = 'png', width = 12)
 ggsave(filename = 'p_p53_dot.png', plot = p_p53_dot, device = 'png', width = 12)
 ggsave(filename = 'p_e2f_dot.png', plot = p_e2f_dot, device = 'png', width = 12)
@@ -423,244 +422,255 @@ ggsave(filename = 'p_serpine1_dot.png', plot = p_serpine1_dot, device = 'png', w
 ggsave(filename = 'p_tnfs_dot.png', plot = p_tnfs_dot, device = 'png', width = 12)
 ggsave(filename = 'p_cxc_dot.png', plot = p_cxc_dot, device = 'png', width = 12)
 ggsave(filename = 'p_mmp_dot.png', plot = p_mmp_dot, device = 'png', width = 12)
+
+#SCT counts slot is the corrected counts
+Idents(SD7_seurat) <- SD7_seurat$seurat_clusters
+
+foi_norm <- AverageExpression(SD7_seurat, assays = 'SCT', features = c(features_list), slot = 'counts')
+write.table(foi_norm, file = 'sd7_normalized_filtered_counts.csv')
+
+sd7_norm <- AverageExpression(SD7_seurat, assays = 'SCT', slot = 'counts')
+
+write.table(sd7_norm, file = 'sd7_normalized_counts.csv')
+
+
 ```
 
-```{r compare clusters and annots}
+```{r compare clusters and mca annotations dim reduction}
 atlas_plot <- DimPlot(all_data.combined, reduction="tsne", group.by = "atlas_predicted_clusters_short", split.by = 'orig.ident', label = TRUE, label.size = 3, repel = T) 
 seurat_plot <-  DimPlot(all_data.combined, reduction="tsne", group.by = "seurat_clusters", split.by = 'orig.ident', label = TRUE, label.size = 3, repel = T) 
 
 seurat_v_atlas <- seurat_plot / atlas_plot
 
-ggsave(filename = 'seurat_v_atlas.png', plot = p_cdkn_dot, device = 'png', width = 30)
+ggsave(filename = 'seurat_v_atlas.png', plot = seurat_v_atlas, device = 'png', width = 30)
 ```
  
-```{r How well do the Seurat clusters and the predicted clusters correspond?}
-concordance <- data.frame(x=all_data.combined$atlas_predicted_clusters_short, y=all_data.combined$seurat_clusters)
-
-normalize <- function(x) {
-return ((x - min(x)) / (max(x) - min(x)))
-}
-
-conc_plot_data <- melt(table(concordance)) %>% group_by(y) %>% mutate(value=normalize(value))
-conc_plot_data$y <- as.factor(conc_plot_data$y)
-conc_plot_data <- conc_plot_data %>% dplyr::rename(mca = x, seurat = y)
-conc_plot_data_spread <- pivot_wider(conc_plot_data, names_from = seurat, values_from = value)
-
-#write.table(conc_plot_count_spread, 'conc_plot_count_spread.txt', sep = '\t', row.names = F)
-#write.table(conc_plot_data_spread, 'conc_plot_data_spread.txt', sep = '\t', row.names = F)
-
-conc_plot_count <- melt(table(concordance)) %>% group_by(y, x) %>% mutate(value=sum(value))
-conc_plot_count$y <- as.factor(conc_plot_count$y)
-conc_plot_count <- conc_plot_count %>% dplyr::rename(mca = x, seurat = y)
-conc_plot_count_spread <- pivot_wider(conc_plot_count, names_from = seurat, values_from = value)
-
-conc_plot_count_spread <-  conc_plot_count_spread %>% 
-  rename_with(.cols = 2, ~"seurat_0") %>%
-  rename_with(.cols = 3, ~"seurat_1") %>%
-  rename_with(.cols = 4, ~"seurat_2") %>%
-  rename_with(.cols = 5, ~"seurat_3") %>%
-  rename_with(.cols = 6, ~"seurat_4") %>%
-  rename_with(.cols = 7, ~"seurat_5") %>%
-  rename_with(.cols = 8, ~"seurat_6") %>%
-  rename_with(.cols = 9, ~"seurat_7") %>%
-  rename_with(.cols = 10, ~"seurat_8") %>%
-  rename_with(.cols = 11, ~"seurat_9") %>%
-  rename_with(.cols = 12, ~"seurat_10") %>%
-  rename_with(.cols = 13, ~"seurat_11") %>%
-  rename_with(.cols = 14, ~"seurat_12") %>%
-  rename_with(.cols = 15, ~"seurat_13") %>%
-  rename_with(.cols = 16, ~"seurat_14") %>%
-  rename_with(.cols = 17, ~"seurat_15") %>%
-  rename_with(.cols = 18, ~"seurat_16") %>%
-  rename_with(.cols = 19, ~"seurat_17") %>%
-  rename_with(.cols = 20, ~"seurat_18") %>%
-  rename_with(.cols = 21, ~"seurat_19") %>%
-  rename_with(.cols = 22, ~"seurat_20") %>%
-  rename_with(.cols = 23, ~"seurat_21") %>%
-  rename_with(.cols = 24, ~"seurat_22") %>%
-  rename_with(.cols = 25, ~"seurat_23") %>%
-  rename_with(.cols = 26, ~"seurat_24") %>%
-  rename_with(.cols = 27, ~"seurat_25") %>%
-  rename_with(.cols = 28, ~"seurat_26") %>%
-  rename_with(.cols = 29, ~"seurat_27") %>%
-  rename_with(.cols = 30, ~"seurat_28") %>%
-  rename_with(.cols = 31, ~"seurat_29") %>%
-  rename_with(.cols = 32, ~"seurat_30") %>%
-  rename_with(.cols = 33, ~"seurat_31") %>%
-  rename_with(.cols = 34, ~"seurat_32") %>%
-  rename_with(.cols = 35, ~"seurat_33") %>%
-  rename_with(.cols = 36, ~"seurat_34") %>%
-  rename_with(.cols = 37, ~"seurat_35") %>%
-  rename_with(.cols = 38, ~"seurat_36") %>%
-  rename_with(.cols = 39, ~"seurat_37") %>%
-  rename_with(.cols = 40, ~"seurat_38") %>%
-  rename_with(.cols = 41, ~"seurat_39") %>%
-  rename_with(.cols = 42, ~"seurat_40") %>% 
-  rename_with(.cols = 43, ~"seurat_41")
-
-conc_plot_count_spread_df <- data.frame(conc_plot_count_spread)
-rownames(conc_plot_count_spread_df) <- conc_plot_count_spread_df$mca
-conc_plot_count_spread_df_relative_to_seurat <- conc_plot_count_spread_df %>% mutate_if(is.numeric, funs(./sum(.)))
-
-conc_plot_count_spread_df_relative_to_seurat_long <- pivot_longer(conc_plot_count_spread_df_relative_to_seurat, cols = seurat_0:seurat_41)
-
-unique(conc_plot_count_spread_df_relative_to_seurat_long$name)
-
-conc_plot_count_spread_df_relative_to_seurat_long$name <- factor(conc_plot_count_spread_df_relative_to_seurat_long$name, levels = unique(conc_plot_count_spread_df_relative_to_seurat_long$name))
-
-conc_plot2 <- ggplot(conc_plot_count_spread_df_relative_to_seurat_long, aes(x = mca, y = name, fill = value)) +
-  coord_equal()+
-  geom_tile(colour = 'black') + 
-  theme(panel.grid = element_blank(),
-        axis.title.y = element_blank(),
-        axis.title.x = element_blank(),
-        axis.text.x = element_blank(),
-        axis.ticks = element_blank()) +
-  scale_fill_gradientn(
-    colors = c("white", "darkred"),
-    limits = range(conc_plot_data$value)) +
-  theme(panel.grid = element_blank(),
-        axis.text.x=element_text(angle=90, hjust = 1, vjust = .4),
-        axis.ticks = element_blank(),
-        text = element_text(size=20))
-
-#ggsave(plot = conc_plot2, file = 'figure2b1.png', width = 10, height = 15, units = 'in')
-
-conc_plot_count_spread_df_relative_to_seurat_long_filt <- conc_plot_count_spread_df_relative_to_seurat_long %>% 
-  filter(value != 0) %>% group_by(mca) %>% summarise(seurat = paste(name, collapse = ',')) 
-
-conc_plot_count_spread_df_relative_to_seurat_long_filt$seurat <- str_replace_all(string = conc_plot_count_spread_df_relative_to_seurat_long_filt$seurat, pattern = 'seurat_', replacement = '')
-
-table <- tableGrob(conc_plot_count_spread_df_relative_to_seurat_long_filt, cols = NULL, rows = NULL, theme =ttheme_default())
-figure <- grid.arrange(table)
-```
-
-#make a table to go w conc plot
-
-```{r make a table to go w conc plot}
-#make a table to go w conc plot:
-
-conc_table <- data.frame(cbind(all_data.combined$atlas_predicted_clusters, 
-                               #all_data.combined$prediction.score.max, 
-                               all_data.combined$seurat_clusters)) 
-colnames(conc_table) <- c('atlas_predicted_clusters','seurat_clusters')
-conc_table$seurat_clusters <- as.character(conc_table$seurat_clusters)
-
-conc_table_sep <- conc_table %>% 
-  group_by(atlas_predicted_clusters) %>%
-  distinct() %>% 
-  mutate(seurat_clusters = as.character(seurat_clusters)) %>%
-  unique() %>%
-  group_by(atlas_predicted_clusters)  %>%
-  summarize(clusters_per_type = paste(as.character(seurat_clusters), collapse = ','))
-```
-
-```{r}
-write.csv(conc_plot_count_spread, 'conc_plot_count_spread.csv', row.names = F)
-write.csv(conc_table_sep, 'conc_table_sep.csv', row.names = F)
-
-```
-
-
-
 ```{r This section is where we find markers distinguishing the clusters only in SD7}
 
-SD7_seurat
 
 Idents(SD7_seurat) <- SD7_seurat$seurat_clusters
 # find markers for every cluster compared to all remaining cells, report only the positive ones
 SD7_seurat.markers <- FindAllMarkers(SD7_seurat, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25, assay = 'SCT')
 
+#saveRDS(SD7_seurat.markers, file = "SD7_seurat.markers.rds")
+#saveRDS(SD7_seurat, file = "SD7_seurat.rds")
 
 # Add the gene information to each cluster..
 SD7_seurat.markers <- left_join(SD7_seurat.markers, all_genes_bm, by = c('gene' = 'mgi_symbol'))
-```
-```{r}
+
+#get distinct markers
+SD7_seurat.markers_distinct <- distinct(SD7_seurat.markers, gene, .keep_all = T)
+
+#all_data.combined <- readRDS("all_data.combined_sept_2021.rds")
+#SD7_seurat.markers <- readRDS("SD7_seurat.markers.rds")
+#SD7_seurat <- readRDS("SD7_seurat.rds")
+
 #split up the markers by cluster..
-cluster_levels <- levels(SD7_seurat.markers$cluster)
-SD7_seurat.markers.split <- lapply(seq_along(cluster_levels), function(i) SD7_seurat.markers%>% dplyr::filter(cluster == cluster_levels[i]))
-
-#install.packages('xlsx')
-library(xlsx)
-file <- paste("SD7_seurat_markers.xlsx", sep = "")
-
-write.xslx(SD7_seurat.markers.split[[1]],file, sheetName = 'cluster0')
-write.xslx(SD7_seurat.markers.split[[2]], file, sheetName = 'cluster1', append = TRUE)
-write.xslx(SD7_seurat.markers.split[[3]], file, sheetName = 'cluster4', append = TRUE)
-write.xslx(SD7_seurat.markers.split[[4]], file, sheetName = 'cluster5', append = TRUE)
-write.xslx(SD7_seurat.markers.split[[5]], file, sheetName = 'cluster6', append = TRUE)
-write.xslx(SD7_seurat.markers.split[[6]], file, sheetName = 'cluster7', append = TRUE)
-write.xslx(SD7_seurat.markers.split[[7]], file, sheetName = 'cluster8', append = TRUE)
-write.xslx(SD7_seurat.markers.split[[8]], file, sheetName = 'cluster10', append = TRUE)
-write.xslx(SD7_seurat.markers.split[[9]], sheetName = 'cluster13', append = TRUE)
-write.xslx(SD7_seurat.markers.split[[10]], sheetName = 'cluster14', append = TRUE)
-write.xslx(SD7_seurat.markers.split[[11]], sheetName = 'cluster16', append = TRUE)
-write.xslx(SD7_seurat.markers.split[[12]], sheetName = 'cluster17', append = TRUE)
-write.xslx(SD7_seurat.markers.split[[13]], sheetName = 'cluster20', append = TRUE)
-write.xslx(SD7_seurat.markers.split[[14]], sheetName = 'cluster21', append = TRUE)
-write.xslx(SD7_seurat.markers.split[[15]], sheetName = 'cluster23', append = TRUE)
-write.xslx(SD7_seurat.markers.split[[16]], sheetName = 'cluster25', append = TRUE)
-write.xslx(SD7_seurat.markers.split[[17]], sheetName = 'cluster27', append = TRUE)
-write.xslx(SD7_seurat.markers.split[[18]], sheetName = 'cluster29', append = TRUE)
-write.xslx(SD7_seurat.markers.split[[19]], sheetName = 'cluster30', append = TRUE)
-write.xslx(SD7_seurat.markers.split[[20]], sheetName = 'cluster31', append = TRUE)
-write.xslx(SD7_seurat.markers.split[[21]], sheetName = 'cluster36', append = TRUE)
-write.xslx(SD7_seurat.markers.split[[22]], sheetName = 'cluster39', append = TRUE)
+cluster_levels <- unique(SD7_seurat.markers_distinct$cluster) 
+SD7_seurat.markers.split <- lapply(seq_along(cluster_levels), function(i) SD7_seurat.markers_distinct %>% dplyr::filter(cluster == cluster_levels[i]))
 
 
+#install.packages("writexl")
+library(writexl)
+
+sheet_names <- c(paste0('cluster', '_', cluster_levels))
+
+names(SD7_seurat.markers.split) <- paste0('seurat_', unique(top5_markers$cluster))
+
+write_xlsx(SD7_seurat.markers.split, "markers_per_cluster_SD7.xlsx")
 
 #doing some filtering to look at just the 'top markers', but probably want to only use these for making figures.
-top5_markers <- SD7_seurat.markers %>% group_by(cluster) %>% top_n(n = 5, wt = avg_logFC)
+top5_markers <- SD7_seurat.markers_distinct  %>% group_by(cluster) %>% top_n(n = 5, wt = avg_logFC)
 
-top5_markers$rank <- rep(1:5, length.out = nrow(top5_markers))
+top5_markers.split <- lapply(seq_along(unique(top5_markers$cluster)), function(i) top5_markers %>% dplyr::filter(cluster == unique(top5_markers$cluster)[i]))
+  
+marker_dotplots <- lapply(seq_along(top5_markers.split), function(i) DotPlot(SD7_seurat, features = c((top5_markers.split[[i]])$gene)) & labs(title = paste0('seurat_', (top5_markers.split[[i]])$cluster)))
 
-clust_plot <- ggplot(top5_markers, aes(x = rank, y = cluster, fill = avg_logFC)) + 
-  geom_tile() +
+```
+```{r}
+(marker_dotplots[[1]] + marker_dotplots[[2]] + marker_dotplots[[3]]) / (marker_dotplots[[4]] + marker_dotplots[[5]] + marker_dotplots[[6]]) 
+```
+
+
+```{r}
+ggsave(filename = 'marker_dotplots.png', width = 30, height = 30, device = 'png', plot = (marker_dotplots[[1]] + marker_dotplots[[2]] + marker_dotplots[[3]] + marker_dotplots[[4]] + marker_dotplots[[5]] + marker_dotplots[[6]] + marker_dotplots[[7]] + marker_dotplots[[8]] + marker_dotplots[[9]] + marker_dotplots[[10]] + 
+marker_dotplots[[11]] + marker_dotplots[[12]] + marker_dotplots[[13]] + marker_dotplots[[14]] + marker_dotplots[[15]] + marker_dotplots[[16]] + marker_dotplots[[17]] + marker_dotplots[[18]] + marker_dotplots[[19]] + marker_dotplots[[20]] + marker_dotplots[[21]] + marker_dotplots[[22]]))
+```
+
+
+
+```{r}
+
+DefaultAssay(SD7_seurat) <- 'SCT'
+
+marker_dotplots <-  DotPlot(SD7_seurat, features = top5_markers$gene, group.by = 'seurat_clusters') & 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) & 
+  geom_vline(xintercept = 5.55) &
+  geom_vline(xintercept = 10.55) &
+  geom_vline(xintercept = 15.55) &
+  geom_vline(xintercept = 20.55) &
+  geom_vline(xintercept = 25.55) &
+  geom_vline(xintercept = 30.55) &
+  geom_vline(xintercept = 35.55) &
+  geom_vline(xintercept = 40.55) &
+  geom_vline(xintercept = 45.55) &
+  geom_vline(xintercept = 50.55) &
+  geom_vline(xintercept = 55.55) &
+  geom_vline(xintercept = 60.55) &
+  geom_vline(xintercept = 65.55) &
+  geom_vline(xintercept = 70.55) &
+  geom_vline(xintercept = 75.55) &
+  geom_vline(xintercept = 80.55) &
+  geom_vline(xintercept = 85.55) &
+  geom_vline(xintercept = 90.55) &
+  geom_vline(xintercept = 95.55) &
+  geom_vline(xintercept = 100.55) &
+  geom_vline(xintercept = 105.55) &
+  geom_vline(xintercept = 110.55) &
+  geom_hline(yintercept = 1.5) &
+  geom_hline(yintercept = 2.5) &
+  geom_hline(yintercept = 3.5) &
+  geom_hline(yintercept = 4.5) &
+  geom_hline(yintercept = 5.5) &
+  geom_hline(yintercept = 6.5) &
+  geom_hline(yintercept = 7.5) &
+  geom_hline(yintercept = 8.5) &
+  geom_hline(yintercept = 9.5) &
+  geom_hline(yintercept = 10.5) &
+  geom_hline(yintercept = 11.5) &
+  geom_hline(yintercept = 12.5) &
+  geom_hline(yintercept = 13.5) &
+  geom_hline(yintercept = 14.5) &
+  geom_hline(yintercept = 15.5) &
+  geom_hline(yintercept = 16.5) &
+  geom_hline(yintercept = 17.5) &
+  geom_hline(yintercept = 18.5) &
+  geom_hline(yintercept = 19.5) &
+  geom_hline(yintercept = 20.5) &
+  geom_hline(yintercept = 21.5) &
+  geom_hline(yintercept = 22.5) &
+  geom_hline(yintercept = 23.5) &
+  geom_hline(yintercept = 24.5) &
+  geom_hline(yintercept = 25.5) &
+  geom_hline(yintercept = 26.5) &
+  geom_hline(yintercept = 27.5) &
+  geom_hline(yintercept = 28.5) &
+  geom_hline(yintercept = 29.5) &
+  geom_hline(yintercept = 30.5) &
+  geom_hline(yintercept = 31.5) &
+  geom_hline(yintercept = 32.5) &
+  geom_hline(yintercept = 33.5)
+
+
+
+
+#Results are saved in a new assay (named SCT by default) with counts being (corrected) counts, data being log1p(counts), scale.data being pearson residuals; sctransform::vst intermediate results are saved in misc slot of new assay. 
+
+FeaturePlot(SD7_seurat, 
+            label = TRUE, 
+            label.size = 6, 
+            repel = F, 
+            sort = TRUE, 
+            features = (top5_markers %>% dplyr::filter(cluster == 0))$gene, 
+            ncol = 5, 
+            reduction = 'tsne',
+            slot = 'counts') &
+  scale_colour_gradientn(limits= c(0,8), colors = c('bisque', 'darkred')) &
+  labs(subtitle = 'SD7')
+
+
+DotPlot(SD7_seurat, 
+        assay = 'SCT',
+        features = (top5_markers %>% dplyr::filter(cluster == 8))$gene) & 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) & 
+  coord_flip()
+```
+
+```{r Table comparing the numbers of cells in each combination of seurat cluster and cell type annotation}
+cell_types_per_cluster_df  <- data.frame(atlas = SD7_seurat$atlas_predicted_clusters_short, seurat = SD7_seurat$seurat_clusters)
+cell_types_per_cluster <- as.data.frame(table(cell_types_per_cluster_df$atlas, cell_types_per_cluster_df$seurat))
+cell_types_per_cluster$atlas <- cell_types_per_cluster$Var1
+cell_types_per_cluster$seurat <- cell_types_per_cluster$Var2
+cell_types_per_cluster$Var1 <- NULL
+cell_types_per_cluster$Var2 <- NULL
+cell_types_per_cluster <- cell_types_per_cluster %>% arrange(desc(Freq))
+cell_types_per_cluster <- cell_types_per_cluster %>% filter(Freq > 0)
+cell_types_per_cluster <- cell_types_per_cluster %>% arrange(desc(atlas))
+#write.csv(cell_types_per_cluster, 'cell_types_per_cluster.csv', row.names= F)
+
+cell_types_per_cluster$number_of_cells <- cell_types_per_cluster$Freq
+cell_types_per_cluster$Freq <- NULL
+cell_types_per_cluster_plot <- ggplot(cell_types_per_cluster, aes(x = atlas, y = seurat, fill = number_of_cells)) +
+  coord_equal()+
+  geom_tile(colour = 'black') + 
+  xlab('Cell Annotation') +
+  ylab('Seurat Cluster') +
   theme(panel.grid = element_blank(),
-        axis.title.y = 'top 5 marker genes',
-        axis.title.x = element_blank(),
         axis.text.x = element_blank(),
         axis.ticks = element_blank()) +
-  geom_text(aes(label = gene, size = 8)) +
-  xlab("") +
   scale_fill_gradientn(
-    colors = c("white", "purple3"),
-    limits = range(top5_markers$avg_logFC)) +
-  theme_minimal() 
-ggsave(plot = clust_plot, filename = 'clust_plot.png', width = 8) 
+    colors = c("white", "darkred"),
+    limits = range(cell_types_per_cluster$number_of_cells)) +
+  theme(panel.grid = element_blank(),
+        axis.text.x=element_text(angle=90, hjust = 1, vjust = .4),
+        axis.ticks = element_blank(),
+        text = element_text(size=20)) 
 ```
+```{r Table of how many cells in each cell type category}
+cell_types_freq_df <- data.frame(ident = SD7_seurat$orig.ident, atlas = SD7_seurat$atlas_predicted_clusters_short)
+cell_types_freq <- as.data.frame(table(cell_types_freq_df$ident, cell_types_freq_df$atlas))
+cell_types_freq$atlas <- cell_types_freq$Var2
+cell_types_freq$Var2 <- NULL
+cell_types_freq$ident <- cell_types_freq$Var1
+cell_types_freq$Var1 <- NULL
+
+cell_types_freq <- cell_types_freq %>% arrange(desc(Freq))
+cell_types_freq <- cell_types_freq %>% filter(Freq > 0)
+#write.csv(cell_types_freq, 'cell_types_freq.csv', row.names= F)
+
+
+cell_types_freq$number_of_cells <- cell_types_freq$Freq
+cell_types_freq$Freq <- NULL
+
+cell_types_freq_plot <- ggplot(cell_types_freq, aes(x = ident, y = atlas, fill = number_of_cells)) +
+  coord_equal()+
+  geom_tile(colour = 'black') + 
+  xlab('Ident') +
+  ylab('Cell state') +
+  theme(panel.grid = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks = element_blank()) +
+  scale_fill_gradientn(
+    colors = c("white", "red"),
+    limits = range(cell_types_freq$number_of_cells)) +
+  geom_text(aes(label = number_of_cells)) +
+  theme(panel.grid = element_blank(),
+        axis.text.x=element_text(angle=90, hjust = 1, vjust = .4),
+        axis.ticks = element_blank(),
+        text = element_text(size=20))
+
+```
+```{r Table of how many cells are in each seurat cluster}
+clusters_freq_df <- data.frame(ident = SD7_seurat$orig.ident, seurat = SD7_seurat$seurat_clusters)
+clusters_freq <- as.data.frame(table(clusters_freq_df$ident, clusters_freq_df$seurat))
+clusters_freq$seurat <- clusters_freq$Var2
+clusters_freq$Var1 <- NULL
+clusters_freq$Var2 <- NULL
+clusters_freq <- clusters_freq %>% arrange(desc(Freq))
+clusters_freq$Number_of_cells <- clusters_freq$Freq
+#write.csv(clusters_freq, 'clusters_freq.csv', row.names= F)
+```
+
 
 ```{r}
-#save.image(file='sept2021.RData')
-#load('sept2021)
-```
-```{r}
-
-all_data.combined_df <- data.frame(x = all_data.combined$atlas_predicted_clusters, y = all_data.combined$orig.ident)
-# Get number of cells per cluster and per sample of origin
-cell_types_per_ident <- table(all_data.combined@meta.data$atlas_predicted_clusters_short, all_data.combined@meta.data$orig.ident)
-cell_types_per_ident_df <- as.data.frame(cell_types_per_ident) %>% pivot_wider(names_from = 'Var2', values_from = 'Freq')
-cell_types_per_ident_df <- data.frame(cell_types_per_ident_df)
 
 
-# Get number of cells per cluster and per sample of origin
-cell_types_per_ident2 <- table(all_data.combined@meta.data$seurat_clusters, all_data.combined@meta.data$orig.ident)
-cell_types_per_ident2_df <- as.data.frame(cell_types_per_ident2) %>% pivot_wider(names_from = 'Var2', values_from = 'Freq')
-cell_types_per_ident2_df <- data.frame(cell_types_per_ident2_df)
 
+
+ggsave('cell_types_per_cluster_plot.png', device = 'png')
+#ggsave(plot = conc_plot2, file = 'figure2b1.png', width = 10, height = 15, units = 'in')
 
 ```
-
-
-
-
-
-
-
-
-
-
-
 
 
 

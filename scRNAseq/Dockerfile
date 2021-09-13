@@ -78,10 +78,11 @@ RUN wget http://www.fftw.org/fftw-3.3.8.tar.gz \
 RUN R -e "install.packages('BiocManager', dependencies=TRUE, repos='http://cran.rstudio.com/', ask = FALSE)"
 RUN R -e "install.packages('devtools', dependencies=TRUE, repos='http://cran.rstudio.com/', ask = FALSE)"
 
-RUN R -e "install.packages(c('broom', 'corrplot', 'car', 'cowplot', 'MASS', 'fitdistrplus', 'future', 'future.apply', 'ggrepel', 'ggridges', 'httr', 'ica', 'igraph', 'irlba', 'jsonlite', 'leiden', 'lmtest','knitr', 'kableExtra','matrixStats', 'miniUI', 'patchwork', 'pbapply', 'plotly', 'png', 'RANN', 'Rcpp', 'RcppAnnoy', 'reticulate', 'ROCR', 'rsvd', 'Rtsne', 'sctransform', 'tidyverse', 'RColorBrewer', 'viridis', 'spatstat', 'uwot', 'RcppProgress', 'xlsx'), dependencies=TRUE, repos='http://cran.rstudio.com/', ask = FALSE)"
+RUN R -e "install.packages(c('broom', 'corrplot', 'car', 'cowplot', 'MASS', 'fitdistrplus', 'future', 'future.apply', 'ggrepel', 'ggridges', 'httr', 'ica', 'igraph', 'irlba', 'jsonlite', 'leiden', 'lmtest','knitr', 'kableExtra','matrixStats', 'miniUI', 'patchwork', 'pbapply', 'plotly', 'png', 'RANN', 'Rcpp', 'RcppAnnoy', 'reticulate', 'ROCR', 'rsvd', 'Rtsne', 'sctransform', 'tidyverse', 'RColorBrewer', 'viridis', 'spatstat', 'uwot', 'RcppProgress'), dependencies=TRUE, repos='http://cran.rstudio.com/', ask = FALSE)"
 
 RUN R -e "BiocManager::install(c('AnnotationHub','DOSE','GenomeInfoDb','GenomicRanges','SingleCellExperiment','SummarizedExperiment','biomaRt','clusterProfiler','enrichplot', 'limma', 'edgeR'), update = FALSE)"
 
+RUN R -e "devtools::install_github('colearendt/xlsx')"
 
 RUN R -e "install.packages('https://cran.r-project.org/src/contrib/Archive/rstatix/rstatix_0.6.0.tar.gz', repos = NULL, type = 'source')"
 RUN R -e "install.packages('https://cran.r-project.org/src/contrib/Archive/crayon/crayon_1.3.4.tar.gz', repos = NULL, type = 'source')"
