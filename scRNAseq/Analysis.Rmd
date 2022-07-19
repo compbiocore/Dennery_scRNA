@@ -5,31 +5,44 @@ date: "7/14/2020"
 output: html_document
 ---
 
+#add depp1 etc genes back in
+#re-order the groups on the x-axis 'Macrophage", "AT2, AT1, Mesenchymal, Endo, other immume
+
+#rerun stats with just findmarkers to  make a specific pairwise comparison to sd7 and o2d7
+#in addition to like supplemental table 1, include the actual file name as like a comment
+#add some text to the results section with the distributions of the macrophage groups
+
+#push updates to git
+#add some AT2 marker gene figures -- do the macrophage seurat clusters have different AT2 markers? could just look at overlaps  
 
   
-```{r Setup}
+```{r "Setup"}
 #install.packages('rstatix')
-library(Seurat)
-library(patchwork)
+.libPaths(c("/usr/local/lib/R/site-library","/usr/local/lib/R/library"))
 library(ggplot2)
 library(dplyr)
+library(tidyr)
+library(Seurat)
+library(patchwork)
 library(future)
 library(rsvd)
 library(reshape2)
 library(rstatix)
 library(biomaRt)
 library(stringr)
-library(tidyr)
 library(gridExtra)
 library(data.table)
 library(xlsx)
-set.seed(61)
-options(future.globals.maxSize = 4000 * 1024^2)
-```
+library(plyr)
 
-```{r Data import and merging}
+set.seed(61)
+options(future.globals.maxSize = 4000 * 1024^3)
+```
+```{r "Data import and merging"}
 # These lines don't work if run as part of a markdown code chunk, instead copy and paste them run into the rstudio console and them them there. them via the R console in RStudio (this seems to be an rstudio bug).
 # Read in data
+setwd('/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq')
+
 AirD7.data <- Read10X(data.dir ="AirD7out/filtered_feature_bc_matrix/")
 AirD60.data <- Read10X(data.dir ="AirD60out/filtered_feature_bc_matrix/")
 O2D7.data <- Read10X(data.dir ="O2D7out/filtered_feature_bc_matrix/")
@@ -38,7 +51,6 @@ SD7.data <- Read10X(data.dir ="SD7out/filtered_feature_bc_matrix/")
 
 # Create Seurat objects
 #Include features (e.g. genes) detected in at least 3 cells and cells with at least 200 features.
-
 AirD7.data <- CreateSeuratObject(counts = AirD7.data,  project = "AirD7",min.cells = 3, min.features = 200)
 O2D7.data <- CreateSeuratObject(counts = O2D7.data,  project = "O2D7",min.cells = 3, min.features = 200)
 AirD60.data <- CreateSeuratObject(counts = AirD60.data,  project = "AirD60",min.cells = 3, min.features = 200)
@@ -53,9 +65,10 @@ all_data[["percent.mt"]] <- PercentageFeatureSet(all_data, pattern = "^mt-")
 
 #Set levels
 Idents(all_data) <- factor(Idents(all_data), levels = c("AirD7","O2D7","SD7", "AirD60", "O2D60"))
-```
 
-```{r QC Plots}
+saveRDS(object = all_data, file='/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/Dennery_scRNA/scRNAseq/all_data_seurat.rds')
+```
+```{r "QC Plots"}
 # QC Plots
 VlnPlot(all_data, features = "nFeature_RNA")
 VlnPlot(all_data, features = "nCount_RNA")
@@ -76,45 +89,44 @@ FeatureScatter(all_data, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
 qc.metrics <- dplyr::as_tibble(all_data[[c("nCount_RNA","nFeature_RNA","percent.mt", "orig.ident")]],rownames="Cell.Barcode") 
 qc.metrics
 
-mplot <- qc.metrics %>%
-  arrange(percent.mt) %>%
-  ggplot(aes(nCount_RNA,nFeature_RNA,colour=percent.mt)) + 
-  geom_point() + 
-  scale_color_gradientn(colors=c("black","blue","green2","red","yellow")) +
-  ggtitle("QC metrics") +
-  geom_hline(yintercept = 700) +
-  geom_hline(yintercept = 8000) 
+#mplot <- qc.metrics %>%
+#  arrange(percent.mt) %>%
+#  ggplot2::ggplot(aes(nCount_RNA,nFeature_RNA,colour=percent.mt)) + 
+#  geom_point() + 
+#  scale_color_gradientn(colors=c("black","blue","green2","red","yellow")) +
+#  ggtitle("QC metrics") +
+#  geom_hline(yintercept = 700) +
+#  geom_hline(yintercept = 8000) 
 
-ident_plot <- qc.metrics %>%
-  arrange(percent.mt) %>%
-  ggplot(aes(nCount_RNA,nFeature_RNA,color=factor(orig.ident))) + 
-  geom_point() + 
-  scale_color_manual(values=c("#E69F00", "#56B4E9", "#009E73", "#F0E442")) +
-  geom_hline(yintercept = 700) +
-  geom_hline(yintercept = 8000) 
+#ident_plot <- qc.metrics %>%
+#  arrange(percent.mt) %>%
+#  ggplot(aes(nCount_RNA,nFeature_RNA,color=factor(orig.ident))) + 
+#  geom_point() + 
+#  #scale_color_manual(values=c("#E69F00", "#56B4E9", "#009E73", "#F0E442")) +
+#  geom_hline(yintercept = 700) +
+#  geom_hline(yintercept = 8000) 
 
-wrapped_filtering <- wrap_plots(mplot, ident_plot, ncol = 2, guides = "collect") + guides()
+#wrapped_filtering <- wrap_plots(mplot, ident_plot, ncol = 2, guides = "collect") + guides()
 
-wrapped_filtering
+#wrapped_filtering
 ```
-
-```{r Filtering}
+```{r "Filtering"}
 
 # Using a 5% mtDNA cutoff... as per https://www.biorxiv.org/content/10.1101/2020.02.20.958793v1.full.pdf
 all_data_sub <- subset(all_data, subset = nFeature_RNA > 700 & nFeature_RNA < 8000 & percent.mt < 5)
 
 all_data #20755 features across 16013 samples within 1 assay
 all_data_sub #20755 features across 13199 samples within 1 assay 
-```
 
-```{r Post-filtering  QC plots}
+table(Idents(all_data))
+table(Idents(all_data_sub))
+
+```
+```{r "Post-filtering  QC plots and normalization"}
 
 FeatureScatter(all_data_sub, feature1 = "nCount_RNA", feature2 = "percent.mt")
 FeatureScatter(all_data_sub, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
-```
 
-
-```{r Normalization}
 # SCTransform to normalize, integrate, make some plots
 #https://github.com/ChristophH/sctransform/issues/25 for explanation of why I'm not worried about 'iteration limit reached' warning messages.
 all_data.list <- SplitObject(all_data_sub, split.by="orig.ident")
@@ -122,8 +134,7 @@ all_data.list <- SplitObject(all_data_sub, split.by="orig.ident")
 #sctransform
 all_data.list <- lapply(all_data.list, function(x) {x <- SCTransform(x,verbose=FALSE)})
 ```
-
-```{r Integration and clustering}
+```{r "Integration and clustering"}
 #all the integration steps
 all_data.features <- SelectIntegrationFeatures(object.list=all_data.list,nfeatures=3000)
 all_data.list <- PrepSCTIntegration(object.list=all_data.list, anchor.features=all_data.features, verbose=FALSE)
@@ -141,14 +152,15 @@ all_data.combined <- RunTSNE(all_data.combined, dims=1:50, nthreads=4, max_iter=
 #all_data.combined <- RunTSNE(all_data.combined, dims=1:50, tsne.method = "FIt-SNE", nthreads=4, max_iter=2000, seed.use=35)  #Could not find the following programs: fast_tsne
 
 ```
-
-```{r Import Mouse cell atlas data}
+```{r "Import Mouse cell atlas data"}
 # MCA
 #From https://satijalab.org/seurat/v3.1/mca.html vignette...
 
-mca.matrix <- readRDS(file = "./MCA/MCA_merged_mat.rds")
-mca.metadata <- read.csv("./MCA/MCA_All-batch-removed-assignments.csv")
-mca.annotations <- read.csv("./MCA/MCA_CellAssignments.csv",row.names = 1)
+setwd('/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq')
+
+mca.matrix <- readRDS(file = "/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/MCA/MCA_merged_mat.rds")
+mca.metadata <- read.csv("/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/MCA/MCA_All-batch-removed-assignments.csv")
+mca.annotations <- read.csv("/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/MCA/MCA_CellAssignments.csv",row.names = 1)
 
 # just interested in lung tissue
 mca.annotations.lung <- mca.annotations %>% dplyr::filter(Tissue == 'Lung')
@@ -167,15 +179,17 @@ mca.metadata.annotations <- mca.metadata.annotations %>% dplyr::select(-Cell.nam
 mca.matrix.lung <- mca.matrix[,grepl("^Lung_", colnames(mca.matrix))]
 mca <- CreateSeuratObject(counts = mca.matrix.lung, meta.data = mca.metadata.annotations, project = "MouseCellAtlas")
 
-saveRDS(mca, file = "mca_sept_2021.rds")
-saveRDS(all_data.combined, file = "all_data.combined_sept_2021.rds")
-```
+#saveRDS(mca, file = "mca_sept_2021.rds")
+#saveRDS(all_data.combined, file = "all_data.combined_sept_2021.rds")
 
-```{r Normalize mca, transfer anchors}
+```
+```{r "Normalize mca, transfer anchors"}
 # Only keep annotated cells
 mca <- SCTransform(mca)
 # Leaves us with 242k cells
+```
 
+```{r}
 all_data.list$mca <- mca
 atlas.features <- SelectIntegrationFeatures(all_data.list) #might need to tweak this 
 atlas.anchors <- FindTransferAnchors(reference=mca, query=all_data.combined, normalization.method="SCT", npcs=82, dims=1:50, features=atlas.features, verbose=FALSE)
@@ -187,12 +201,30 @@ all_data.combined$atlas_predicted_clusters <- sapply(sapply(all_data.combined$pr
 all_data.combined@meta.data$atlas_predicted_clusters_short <- str_replace(all_data.combined@meta.data$atlas_predicted_clusters, pattern = "\\(Lung\\)", replacement = "")
 
 
-saveRDS(mca, file = "mca_sept_2021.rds")
-saveRDS(all_data.combined, file = "all_data.combined_sept_2021.rds")
+#saveRDS(mca, file = "mca_sept_2021.rds")
+#saveRDS(all_data.combined, file = "all_data.combined_sept_2021.rds")
+
+all_data.combined@meta.data$seurat_mca <- paste0(all_data.combined@meta.data$seurat_clusters, '_', all_data.combined@meta.data$atlas_predicted_clusters_short)
+table(subset(all_data.combined, subset = orig.ident == 'SD7')@meta.data$seurat_mca)
+
+
+table(subset(all_data.combined, subset = orig.ident == 'SD7')@meta.data$seurat_clusters, subset(all_data.combined, subset = orig.ident == 'SD7')@meta.data$atlas_predicted_clusters_short)
+
+table(all_data.combined@meta.data$seurat_clusters, all_data.combined@meta.data$atlas_predicted_clusters_short)
+
+table(subset(all_data.combined, subset = orig.ident == 'SD7')@meta.data$seurat_clusters)
+table(subset(all_data.combined, subset = orig.ident == 'SD7')@meta.data$atlas_predicted_clusters_short)
+
+table(all_data.combined@meta.data$orig.ident)
+
+table(subset(all_data.combined, subset = orig.ident == 'O2D7')@meta.data$seurat_clusters)
+table(subset(all_data.combined, subset = orig.ident == 'O2D7')@meta.data$atlas_predicted_clusters_short)
+
+
+
 
 ```
-
-```{r Fix 'Clara' to 'Club'}
+```{r "Fix 'Clara' to 'Club'"}
 
 all_data.combined$atlas_predicted_clusters <- str_replace(all_data.combined$atlas_predicted_clusters, pattern = 'Clara', replacement = 'Club')
 all_data.combined$predicted.id <- str_replace(all_data.combined$predicted.id, pattern = 'Clara', replacement = 'Club')
@@ -201,55 +233,119 @@ colnames(all_data.combined@meta.data) <- str_replace(colnames(all_data.combined@
 
 all_data.combined$orig.ident <- factor( x = all_data.combined$orig.ident, levels = c("AirD7", "O2D7", "SD7",  "AirD60", "O2D60"))
 
-saveRDS(mca, file = "mca_sept_2021.rds")
-saveRDS(all_data.combined, file = "all_data.combined_sept_2021.rds")
+#saveRDS(mca, file = "mca_sept_2021.rds")
+#saveRDS(all_data.combined, file = "all_data.combined_sept_2021.rds")
 
 
 ```
+```{r "Add another level of cell type annotations as per Hongwei"}
+#assign a new column called atlas_predicted_clusters_grouped
+all_data.combined$atlas_predicted_clusters_grouped <- all_data.combined$atlas_predicted_clusters_short
 
-```{r Look at TSNE plots and compare mca vs seurat clusters}
+#find and replace to get new levels in
+all_data.combined$atlas_predicted_clusters_grouped <- str_replace_all(string = all_data.combined$atlas_predicted_clusters_grouped,
+            c("Alveolar macrophage_Ear2 high" = "Macrophages",
+            "Alveolar macrophage_Pclaf high" = "Macrophages",
+            "Interstitial macrophage" = "Macrophages",
+            "Basophil" = "Other immune cells",
+            "T Cell_Cd8b1 high" = "Other immune cells",
+            "B Cell" = "Other immune cells",
+            "Nuocyte" = "Other immune cells",
+            "Conventional dendritic cell_Gngt2 high" = "Other immune cells",
+            "Eosinophil granulocyte" = "Other immune cells",
+            "Plasmacytoid dendritic cell" = "Other immune cells",
+            "Dendritic cell_Naaa high" = "Other immune cells",
+            "Dividing T cells" = "Other immune cells",
+            "NK Cell" = "Other immune cells",
+            "Conventional dendritic cell_H2-M2 high" = "Other immune cells",
+            "Neutrophil granulocyte" = "Other immune cells",
+            "Conventional dendritic cell_Mgl2 high" = "Other immune cells",
+            "Conventional dendritic cell_Tubb5 high" = "Other immune cells",
+            "Dividing dendritic cells" = "Other immune cells",
+            "Ig−producing B cell" = "Other immune cells",
+            "AT1 Cell" = "AT1 cells",
+            "AT2 Cell" = "AT2 cells",
+            "Ciliated cell" = "Other epithelial cells",
+            "Dividing cells" = "Other epithelial cells",
+            "Club Cell" = "Other epithelial cells",
+            "Stromal cell_Acta2 high" = "Mesenchymal cells",
+            "Stromal cell_Inmt high" = "Mesenchymal cells",
+            "Stromal cell_Dcn high" = "Mesenchymal cells",
+            "Endothelial cell_Tmem100 high" = "Endothelial cells",
+            "Endothelial cell_Kdr high" = "Endothelial cells",
+            "Endothelial cells_Vwf high" = "Endothelial cells"))
+
+all_data.combined$seurat_mca <- paste0(all_data.combined$seurat_clusters, '-', all_data.combined$atlas_predicted_clusters_grouped)
+
+
+all_data.combined$atlas_predicted_clusters_grouped <- factor(all_data.combined$atlas_predicted_clusters_grouped, levels = c("Macrophages", "AT2 cells", "AT1 cells", "Mesenchymal cells", "Endothelial cells", "Other epithelial cells", "Other immune cells"))
+```
+```{r "make sd7 distributions table with fixed cell type ids"}
+sd7_distributions <- data.frame((table(subset(all_data.combined, subset = orig.ident == 'SD7')@meta.data$seurat_clusters, subset(all_data.combined, subset = orig.ident == 'SD7')@meta.data$atlas_predicted_clusters_short))) %>% pivot_wider(names_from = 'Var1', values_from = 'Freq')
+#write.xlsx(sd7_distributions, file = '/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/Dennery_scRNA/scRNAseq/sd7_distributions.xlsx')
+
+sd7_distributions_grouped <- data.frame((table(subset(all_data.combined, subset = orig.ident == 'SD7')@meta.data$seurat_clusters, subset(all_data.combined, subset = orig.ident == 'SD7')@meta.data$atlas_predicted_clusters_grouped))) %>% pivot_wider(names_from = 'Var1', values_from = 'Freq')
+#write.xlsx(sd7_distributions_grouped, file = '/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/Dennery_scRNA/scRNAseq/sd7_distributions_grouped.xlsx')
+
+```
+```{r "Look at TSNE plots and compare mca vs seurat clusters"}
 
 p1 <- DimPlot(all_data.combined, reduction="tsne", group.by = "atlas_predicted_clusters") 
 p1 <- LabelClusters(p1, id="atlas_predicted_clusters", repel=TRUE)
 #ggsave(plot = p1, file = '2a1_nolabel.png', width = 10, height = 10, units = 'in')
-p1
+#p1
 
 p2 <- DimPlot(all_data.combined, reduction="tsne", group.by = "seurat_clusters") #+ NoLegend()
 p2 <- LabelClusters(p2, id="seurat_clusters", repel=TRUE)
 #ggsave(plot = p2, file = '2a2_nolabel.png', width = 10, height = 10, units = 'in')
-p2
+#p2
 
 
 #wrap_plots(list(p1,p2), ncol = 2)
 
 p3 <- DimPlot(all_data.combined, reduction="tsne", group.by = "atlas_predicted_clusters_short", split.by = "orig.ident") 
 p3 <- LabelClusters(p3, id="atlas_predicted_clusters_short", repel=TRUE)
-p3
+#p3
 
 p4 <- DimPlot(all_data.combined, reduction="tsne", group.by = "seurat_clusters", split.by = "orig.ident") 
-#p4 <- LabelClusters(p4, id="seurat_clusters", repel=TRUE)
-p4
+p4 <- LabelClusters(p4, id="seurat_clusters", repel=TRUE)
+#p4
 ```
-
-```{r Get more info per each gene}
+```{r "Get more info per each gene"}
 
 # get a list of all the genes in the Seurat object.
 all_genes <- data.frame(rownames(all_data.combined))
 all_genes$mgi_symbol <- all_genes$rownames.all_data.combined.
 all_genes$rownames.all_data.combined. <- NULL
 
-mouse_biomart <- useMart("ensembl", dataset = "mmusculus_gene_ensembl")
-mouse_biomart_data <- getBM(mart = mouse_biomart, attributes = c("mgi_description", "mgi_symbol"))
-all_genes_bm <- right_join(mouse_biomart_data, all_genes)
+mouse_biomart <- useMart("ensembl", dataset = "mmusculus_gene_ensembl", host="apr2022.archive.ensembl.org")
 
-saveRDS(all_genes_bm, "all_genes_bm.rds")
+mouse_biomart_data <- getBM(mart = mouse_biomart, attributes = c("mgi_description", "mgi_symbol", "reactome"))
+all_genes_bm <- dplyr::right_join(mouse_biomart_data, all_genes)
+
+
+all_genes_bm <- ddply(all_genes_bm, .(mgi_description, mgi_symbol), summarise, reactome_ids = paste0(reactome, collapse = ", "))
+
+
+#saveRDS(all_genes_bm, "all_genes_bm.rds")
 #all_genes_bm <- readRDS("/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/all_genes_bm.RDS")
 
 ```
+```{r "look at at1 at2 etc marker genes in macrophages"}
+#bin the cell types
+#Endothelial all, #macrophage all, 
+#"Alveolar macrophage_Ear2 high", "Interstitial macrophage", "Alveolar macrophage_Pclaf high"
 
-```{r Try making some more compelling featureplots for the genes Hongwei suggested}
+#a)	type II cell markers (sftpc, sftpb, and abca3), type I cell biomarkers (Hpox, AQP5, andT1α), mesenchymal #cells (Pdgfra) or SOX9 positive cells.
+#b)	genes involved in macrophage phagocytosis (Timd4, Mer, Mfge8, AnxA1, Nr1h3, Nr1h2 , and Nr1c3). See this #paper: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5413334/
 
-all_genes_bm <- readRDS('all_genes_bm.RDS')
+
+Idents(all_data.combined) <- 'seurat_clusters'
+
+```
+```{r "Try making some more compelling featureplots for the genes Hongwei suggested}
+
+#all_genes_bm <- readRDS('all_genes_bm.RDS')
 
 #Please see below the gene list which can be used for identification of senescence. 
 #Gene list of senescence:
@@ -292,7 +388,8 @@ Idents(AirD7_seurat) <- 'seurat_clusters'
 Idents(SD7_seurat ) <- 'seurat_clusters'
 Idents(O2D60_seurat) <- 'seurat_clusters'
 Idents(AirD60_seurat) <- 'seurat_clusters'
-
+```
+```{r "actually make plots"}
 
 featureplot_grid <- function(feats, pwidth, pheight, plotfile){
   p_aird7 <- FeaturePlot(AirD7_seurat, 
@@ -303,7 +400,7 @@ featureplot_grid <- function(feats, pwidth, pheight, plotfile){
                             features = feats, 
                             ncol = length(feats), 
                             reduction = 'tsne') &
-  scale_colour_gradientn(limits= c(0,8), 
+  ggplot2::scale_colour_gradientn(limits= c(0,8), 
                          colors = c('bisque', 'darkred')) &
   labs(subtitle = 'Air D7')
 
@@ -315,7 +412,7 @@ p_o2d7 <- FeaturePlot(O2D7_seurat,
                             features = feats, 
                             ncol = length(feats), 
                             reduction = 'tsne') &
-  scale_colour_gradientn(limits= c(0,8), 
+  ggplot2::scale_colour_gradientn(limits= c(0,8), 
                          colors = c('bisque', 'darkred')) &
   labs(subtitle = 'O2 D7')
 
@@ -327,7 +424,7 @@ p_sd7 <- FeaturePlot(SD7_seurat,
                             features = feats, 
                             ncol = length(feats), 
                             reduction = 'tsne') &
-  scale_colour_gradientn(limits= c(0,8), 
+  ggplot2::scale_colour_gradientn(limits= c(0,8), 
                          colors = c('bisque', 'darkred')) &
   labs(subtitle = 'S D7')
 
@@ -339,7 +436,7 @@ p_aird60 <- FeaturePlot(AirD60_seurat,
                             features = feats, 
                             ncol = length(feats), 
                             reduction = 'tsne') &
-  scale_colour_gradientn(limits= c(0,8), 
+  ggplot2::scale_colour_gradientn(limits= c(0,8), 
                          colors = c('bisque', 'darkred')) &
   labs(subtitle = 'Air D60')
 
@@ -351,14 +448,14 @@ p_o2d60 <- FeaturePlot(O2D60_seurat,
                             features = feats, 
                             ncol = length(feats), 
                             reduction = 'tsne') &
-  scale_colour_gradientn(limits= c(0,8), 
+  ggplot2::scale_colour_gradientn(limits= c(0,8), 
                          colors = c('bisque', 'darkred')) &
   labs(subtitle = 'O2 D60')
 
 
 plots <- p_aird7 / p_o2d7 / p_sd7 / p_aird60 / p_o2d60
 
-ggsave(plotfile, device = 'png', width = pwidth, height = pheight)
+#ggsave(plotfile, device = 'png', width = pwidth, height = pheight)
   
 return(plots)
 }
@@ -379,105 +476,345 @@ featureplot_grid(tnfs, pwidth = 40, pheight = 30, 'p_tnfs_fp.png')
 featureplot_grid(cxc, pwidth = 40, pheight = 30, 'p_cxc_fp.png')
 featureplot_grid(mmp, pwidth = 40, pheight = 30, 'p_mmp_fp.png')
 ```
+```{r "Make a dotplot of Hongwei's genes of interest"}
 
-```{r Make a dotplot of Hongwei's genes of interest}
+
+features_list <- c(cdkn, p53, e2f, ki67, pcna, lmnb1, egr1, ezh2, il6, il1, il10, serpine1, tnfs, cxc, mmp, 'Sin3a', 'Plaur', 'B2m', 'Icam1', 'Dpp4', 'Depp1')
+
+#features_list <- c(cdkn, p53, e2f, ki67, pcna, lmnb1, egr1, ezh2, il6, il1, il10, serpine1, tnfs, cxc, mmp)
+
+features_list <- unique(features_list)
+
+features_list <- factor(features_list, levels = c("Mmp12","Mmp8","Mmp11","Mmp23","Mmp14","Mmp19","Mmp2","Mmp25","Cxcr2","Cxcl10","Cxcl2","Cxcl1","Cxcl15","Cxcl14","Cxcr4","Tnfrsf1b","C1qtnf6","Tnfrsf18","Tnfrsf4","Tnfaip3","Tnfrsf13b","Tnfsf14","Tnfsf9","Tnfaip8l2","Tnfrsf12a","Tnfaip2","Serpine1","Il10ra","Il10rb","Il1b","Il1a","Il6","Ezh2","Egr1","Lmnb1","Pcna","Mki67","E2f8","E2f7","E2f1","Trp53i11","Cdkn1c","Cdkn2d","Cdkn1a","Cdkn3","Cdkn2b","Cdkn2c", "Sin3a", "Plaur", "B2m", "Icam1", "Dpp4", "Depp1"))
+
+#table(subset(all_data.combined, subset = orig.ident == 'SD7')@meta.data$atlas_predicted_clusters_grouped)
+#table(subset(all_data.combined, subset = orig.ident == 'SD7')@meta.data$seurat_clusters)
+#table(subset(all_data.combined, subset = orig.ident == 'SD7')@meta.data$seurat_mca)
+
+sd7_freq_table <- data.frame(table(
+      subset(all_data.combined, subset = orig.ident == 'SD7')$seurat_mca)) %>% arrange(desc(Freq))
+
+sd7_freq_table
+
+table(subset(all_data.combined, subset = orig.ident == 'SD7')@meta.data$atlas_predicted_clusters_grouped)
+
+#clusters 17, 21, 13, 23, 15, 16, 25, and 1 are macrophage groups.
+
+#do the macrophages express senesence marker genes? e.g., sasp
+#do the macrophages express surfactant or other at2-ish genes
+
+
+#add sin3a, sox9 and pgf genes
+#are these genes makers for different cell types?
+```
+```{r "make plots"}
+Idents(all_data.combined) <- 'orig.ident'
+
+
+all_dotplot <-  DotPlot(all_data.combined, assay = 'SCT',features = features_list) & ggplot2::theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) & coord_flip() & theme(axis.text=element_text(size=20))
+
+#ggsave('/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/Dennery_scRNA/scRNAseq/types_dotplot.png', plot = types_dotplot, width = 12, height = 14)
+
+Idents(all_data.combined) <- 'atlas_predicted_clusters_grouped'
+
+types_dotplot <-  DotPlot(all_data.combined, assay = 'SCT',features = features_list ) & ggplot2::theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) & coord_flip()& theme(axis.text=element_text(size=20))
+
+types_dotplot_sub <-  DotPlot(subset(all_data.combined, subset = orig.ident == 'SD7'), assay = 'SCT',features = features_list ) & ggplot2::theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) & coord_flip() & theme(axis.text=element_text(size=20), legend.text=element_text(size=20), axis.title = element_blank())
+
+
+types_dotplot_flip <-  DotPlot(all_data.combined, assay = 'SCT',features = features_list) & ggplot2::theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))& theme(axis.text=element_text(size=20))
+
+types_dotplot_sub_flip <-  DotPlot(subset(all_data.combined, subset = orig.ident == 'SD7'), assay = 'SCT',features = features_list ) & ggplot2::theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))& theme(axis.text=element_text(size=20))
 
 Idents(all_data.combined) <- 'orig.ident'
 
-features_list <- c(cdkn, p53, e2f, ki67, pcna, lmnb1, egr1, ezh2, il6, il1, il10, serpine1, tnfs, cxc, mmp)
 
-all_dotplot <-  DotPlot(all_data.combined, assay = 'SCT',features = features_list ) & theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) & coord_flip()
+types_dotplot_ident <-  DotPlot(all_data.combined, assay = 'SCT',features = features_list) & ggplot2::theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) & coord_flip()& theme(axis.text=element_text(size=20))
 
-ggsave('all_dotplot.png', plot = all_dotplot, width = 6)
 
-p_cdkn_dot <- DotPlot(all_data.combined, assay = 'SCT',features = cdkn)
-p_p53_dot <- DotPlot(all_data.combined, assay = 'SCT',features = p53)
-p_e2f_dot <- DotPlot(all_data.combined, assay = 'SCT',features = e2f)
-p_ki67_dot <- DotPlot(all_data.combined, assay = 'SCT',features = ki67)
-p_pcna_dot <- DotPlot(all_data.combined, assay = 'SCT',features = pcna)
-p_lmnb1_dot <- DotPlot(all_data.combined, assay = 'SCT',features = lmnb1)
-p_egr1_dot <- DotPlot(all_data.combined, assay = 'SCT',features = egr1)
-p_ezh2_dot <- DotPlot(all_data.combined, assay = 'SCT',features = ezh2)
-p_il6_dot <- DotPlot(all_data.combined, assay = 'SCT',features = il6)
-p_il1_dot <- DotPlot(all_data.combined, assay = 'SCT',features = il1)
-p_il10_dot <- DotPlot(all_data.combined, assay = 'SCT',features = il10)
-p_serpine1_dot <- DotPlot(all_data.combined, assay = 'SCT',features = serpine1)
+#ggsave('/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/Dennery_scRNA/scRNAseq/types_dotplot.png', plot = types_dotplot, width = 14, height = 14)
 
-p_tnfs_dot <- DotPlot(all_data.combined, assay = 'SCT',features = tnfs)
-p_cxc_dot <- DotPlot(all_data.combined, assay = 'SCT',features = cxc)
-p_mmp_dot <- DotPlot(all_data.combined, assay = 'SCT',features = mmp)
+#ggsave('/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/Dennery_scRNA/scRNAseq/types_dotplot_sd7.png', plot = types_dotplot_sub, width = 14, height = 14)
 
-ggsave(filename = 'p_cdkn_dot.png', plot = p_cdkn_dot, device = 'png', width = 12)
-ggsave(filename = 'p_p53_dot.png', plot = p_p53_dot, device = 'png', width = 12)
-ggsave(filename = 'p_e2f_dot.png', plot = p_e2f_dot, device = 'png', width = 12)
-ggsave(filename = 'p_ki67_dot.png', plot = p_ki67_dot, device = 'png', width = 12)
-ggsave(filename = 'p_pcna_dot.png', plot = p_pcna_dot, device = 'png', width = 12)
-ggsave(filename = 'p_lmnb1_dot.png', plot = p_lmnb1_dot, device = 'png', width = 12)
-ggsave(filename = 'p_egr1_dot.png', plot = p_egr1_dot, device = 'png', width = 12)
-ggsave(filename = 'p_ezh2_dot.png', plot = p_ezh2_dot, device = 'png', width = 12)
-ggsave(filename = 'p_il6_dot.png', plot = p_il6_dot, device = 'png', width = 12)
-ggsave(filename = 'p_il1_dot.png', plot = p_il1_dot, device = 'png', width = 12)
-ggsave(filename = 'p_il10_dot.png', plot = p_il10_dot, device = 'png', width = 12)
-ggsave(filename = 'p_serpine1_dot.png', plot = p_serpine1_dot, device = 'png', width = 12)
-ggsave(filename = 'p_tnfs_dot.png', plot = p_tnfs_dot, device = 'png', width = 12)
-ggsave(filename = 'p_cxc_dot.png', plot = p_cxc_dot, device = 'png', width = 12)
-ggsave(filename = 'p_mmp_dot.png', plot = p_mmp_dot, device = 'png', width = 12)
+#ggsave('/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/Dennery_scRNA/scRNAseq/all_dotplot.png', plot = all_dotplot, width = 7, height = 12)
 
-#SCT counts slot is the corrected counts
-Idents(SD7_seurat) <- SD7_seurat$seurat_clusters
+#ggsave('/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/Dennery_scRNA/scRNAseq/types_dotplot_sub.png', plot = types_dotplot_sub, width = 14, height = 18)
 
-foi_norm <- AverageExpression(SD7_seurat, assays = 'SCT', features = c(features_list), slot = 'counts')
-write.table(foi_norm, file = 'sd7_normalized_filtered_counts.csv')
 
-sd7_norm <- AverageExpression(SD7_seurat, assays = 'SCT', slot = 'counts')
+p_cdkn_dot <- DotPlot(all_data.combined, assay = 'SCT',features = unique(cdkn))
+p_p53_dot <- DotPlot(all_data.combined, assay = 'SCT',features = unique(p53))
+p_e2f_dot <- DotPlot(all_data.combined, assay = 'SCT',features = unique(e2f))
+p_ki67_dot <- DotPlot(all_data.combined, assay = 'SCT',features = unique(ki67))
+p_pcna_dot <- DotPlot(all_data.combined, assay = 'SCT',features = unique(pcna))
+p_lmnb1_dot <- DotPlot(all_data.combined, assay = 'SCT',features = unique(lmnb1))
+p_egr1_dot <- DotPlot(all_data.combined, assay = 'SCT',features = unique(egr1))
+p_ezh2_dot <- DotPlot(all_data.combined, assay = 'SCT',features = unique(ezh2))
+p_il6_dot <- DotPlot(all_data.combined, assay = 'SCT',features = unique(il6))
+p_il1_dot <- DotPlot(all_data.combined, assay = 'SCT',features = unique(il1))
+p_il10_dot <- DotPlot(all_data.combined, assay = 'SCT',features = unique(il10))
+p_serpine1_dot <- DotPlot(all_data.combined, assay = 'SCT',features = unique(serpine1))
 
-write.table(sd7_norm, file = 'sd7_normalized_counts.csv')
+p_tnfs_dot <- DotPlot(all_data.combined, assay = 'SCT',features = unique(tnfs))
+p_cxc_dot <- DotPlot(all_data.combined, assay = 'SCT',features = unique(cxc))
+p_mmp_dot <- DotPlot(all_data.combined, assay = 'SCT',features = unique(mmp))
+
+```
+```{r "1C metab"}
+onecarbon_genes <- c('PHGDH','PSAT1','PSPH','DHFR','SHMT','MTHFR','MTHFD','MS','MAT','SAHH','CBS')
+
+onecarbon_genes_more <- all_genes_bm %>% dplyr::filter(grepl('R-MMU-196757', reactome_ids))
+
+onecarbon_genes_fixed <- lapply(seq_along(onecarbon_genes), function(i) grep(onecarbon_genes[i], x = rownames(all_data.combined), ignore.case = T, value = T)) 
+
+onecarbon_genes_fixed <- c("Phgdh", "Psat1", "Psph", "Dhfr", "Shmt2", "Shmt1", "Mthfr", "Mthfd2l", "Mthfd2","Mthfd1l", "Mthfd1", "Mtr", "Ahcyl1", "Ahcyl2", "Cbs", "Folr2")
+
+
+
+one_carbon_genes_sd7_mca <- DotPlot(subset(all_data.combined, subset = orig.ident == 'SD7'), features = onecarbon_genes_fixed, group.by = 'atlas_predicted_clusters_short', assay = 'SCT') & theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+
+one_carbon_genes_idents <-  DotPlot(all_data.combined, assay = 'SCT',features =  onecarbon_genes_fixed) & theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) 
+
+
+
+#ggsave('/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/Dennery_scRNA/scRNAseq/one_carbon_genes_sd7_only_mca.png', plot = one_carbon_genes_sd7_mca, width = 8, height = 8)
+
+#ggsave('/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/Dennery_scRNA/scRNAseq/one_carbon_genes_idents.png', plot = one_carbon_genes_idents , width = 8, height = 8)
+
 
 
 ```
+```{r "specific comparison of sd7 and o2d7 plus all condition markers w findallmarkers"}
+all_data.combined <- PrepSCTFindMarkers(all_data.combined, assay = 'SCT', verbose = TRUE)
 
-```{r compare clusters and mca annotations dim reduction}
-atlas_plot <- DimPlot(all_data.combined, reduction="tsne", group.by = "atlas_predicted_clusters_short", split.by = 'orig.ident', label = TRUE, label.size = 3, repel = T) 
-seurat_plot <-  DimPlot(all_data.combined, reduction="tsne", group.by = "seurat_clusters", split.by = 'orig.ident', label = TRUE, label.size = 3, repel = T) 
+#condition markers for all data
+Idents(all_data.combined) <- 'orig.ident'
 
-seurat_v_atlas <- seurat_plot / atlas_plot
+all_condition_markers <- FindAllMarkers(all_data.combined, min.pct = 0.25, logfc.threshold = 0.25, assay = 'SCT')
 
-ggsave(filename = 'seurat_v_atlas.png', plot = seurat_v_atlas, device = 'png', width = 30)
-```
+#sd7 specific markers
+SD7_markers <- all_condition_markers %>% dplyr::filter(cluster == 'SD7')
+
+#find markers comparing SD7 and O2D7
+sd7_vs_o2d7 <- FindMarkers(all_data.combined, ident.1 = 'SD7', ident.2 = 'O2D7' , assay = 'SCT')
  
-```{r This section is where we find markers distinguishing the clusters only in SD7}
+#find markers comparing SD7 and airD7
+sd7_vs_aird7 <- FindMarkers(all_data.combined, ident.1 = 'SD7', ident.2 = 'AirD7' , min.pct = 0.25, logfc.threshold = 0.25, assay = 'SCT')
+
+#find markers comparing o27 and airD7
+o2d_vs_aird7 <- FindMarkers(all_data.combined, ident.1 = 'O2D7', ident.2 = 'AirD7' , min.pct = 0.25, logfc.threshold = 0.25, assay = 'SCT')
 
 
-Idents(SD7_seurat) <- SD7_seurat$seurat_clusters
-# find markers for every cluster compared to all remaining cells, report only the positive ones
-SD7_seurat.markers <- FindAllMarkers(SD7_seurat, only.pos = TRUE, min.pct = 0.25, logfc.threshold = 0.25, assay = 'SCT')
+#look at cluster markers for all data
+Idents(all_data.combined) <- 'seurat_clusters'
+all_cluster_markers <- FindAllMarkers(all_data.combined, min.pct = 0.25, logfc.threshold = 0.25, assay = 'SCT')
 
-#saveRDS(SD7_seurat.markers, file = "SD7_seurat.markers.rds")
-#saveRDS(SD7_seurat, file = "SD7_seurat.rds")
+#cluster markers for only SD7 data.
+#don't recorrect umi since they are from the same sct object
+
+SD7_cluster_markers <- FindAllMarkers(SD7_seurat, min.pct = 0.25, logfc.threshold = 0.25, assay = 'SCT',recorrect_umi = FALSE)
+
+#add gene ids to sd7_vs_o2d7 and sd7_vs_aird7
+sd7_vs_o2d7$gene <- rownames(sd7_vs_o2d7)
+sd7_vs_aird7$gene <- rownames(sd7_vs_aird7)
+o2d_vs_aird7$gene <- rownames(o2d_vs_aird7)
+```
+```{r "get some more genes of interest"}
+AT2_markers <- unique(c("Abhd5", "Acaa1a", "Adgrf5", "Aig1", "Arhgap44", "Atf3", "Atp13a3", "Bmp4", "Bnip3", "Ccz1", "Cdh16", "Cds1", "Cftr", "Clu", "Cndp2", "Col6a1", "Cracr2a", "Cyp51", "Dhcr24", "Dpp9", "Echs1", "Eif3b", "Epb41l5", "Erbb3", "Fam126b", "Fdft1", "Fgf1", "Foxp2", "Gata6", "Gsta4", "Hadh", "Hdc", "Higd1a", "Hmgcr", "Igsf3", "Il18r1", "Irs2", "Itih4", "Junos", "Kcne2", "Kcnj13", "Kcnj2", "Klf9", "LOC115487124", "Lratd2", "Maged1", "Malat1", "Mob3b", "Mrps9", "Myh7", "Nedd4l", "P4ha1", "Paqr8", "Pard3", "Pcnt", "Pcyt2", "Pls3", "Plxnb1", "Pof1b", "Ppp1r16a", "Rac3", "Rbms3", "Rn7sk", "Serpinb9", "Sgpp2", "Sh3d19", "Slc16a7", "Slc25a39", "Sowahc", "Spint1", "Spr", "Spred1", "Sqle", "Srebf2", "Steap2", "Syt7", "Tbc1d30", "Tcea3", "Tkt", "Tmc4", "Tmem205", "Tmem8", "Tmprss4", "Trim2", "Trp53inp2", "Trpm6", "Ttc38", "Txnrd3", "Usp33", "Vsig2","Rtkn2", "Spock2", "Col4a3", "2200002D01Rik", "Sema3e", "Lamc2", "Scnn1g", "Marco", "Itgb6", "Lama3", "Ccl6", "Igfbp7", "Fth1", "Fbln5", "Krt19", "Sec14l3", "Cd9", "Ano1", "Lpl", "Cryab", "F3", "Tmsb4x", "Vegfa", "Clic5", "S100a11", "Anxa2", "Top2a", "Myl6", "Col4a1", "Actb", "Hs2st1", "Agrn", "Ear2", "Plet1", "Fam174b", "Atp6v0d2", "Fzd2", "Nnat", "Pclaf", "Hspg2", "Rpl36al", "Mest", "Rps27a", "Ctsd", "Cstb", "Akr1a1", "Col4a2", "Calm1", "Fads3", "Plin2", "Tspan15", "Ndufa4", "Ndufb1-ps", "Rpl19", "Aqp1", "Rpl26", "Rpl11", "Ywhae", "Cox4i1", "Sem1", "Anxa5", "Fam189a2", "Uqcrb", "Eif1", "Rps20", "Rpl35", "Calm2", "Ftl1", "Ndst1", "Atp5l", "Cox8a", "Col4a5", "H3f3b", "Serpinh1", "Btf3", "Serf2", "Rpl34", "Tmsb10", "Itgb1", "Cox5b", "Tagln2", "Rpl13", "Rpl14", "Rpl22l1", "Rpl36", "Hsp90ab1", "Trp53bp2", "Myl12b", "Atp5j", "Rab11fip1", "Ctsb", "Lamp1", "Ptov1", "Rps4x", "Rpl22", "Atp5pb", "Ctsz", "Rps13", "Ehd2", "Rpl35a", "Hspa8", "Rps24", "S100a1", "Rps3a1", "Lrpap1", "Drap1", "Rhoa", "Pdia3", "Ndufa13", "Atp5md", "Cd81", "Cox5a", "F11r", "Rpl7", "Cttnbp2nl", "Mrpl14", "Eif2s2", "Ybx1", "1810037I17Rik", "Arf1", "Rpl37a", "Rps23", "Tppp3", "Tmem176b", "Atp5mpl", "Rpl18", "Lamc1", "Rpl36a", "Atp5b", "Npm1", "Ahnak", "Tomm6", "Rpl27", "Rpl9", "Anxa1", "Rpl23", "Rpl8", "Mmp14", "Car2", "Car2", "Rps3", "Canx", "Rps15a", "Xist", "Paip1", "Atp5g1", "Rpl27a", "Tomm7", "Uba52", "Rps27l", "Myof", "H3f3a", "Hspa5", "Slc25a4", "Pmp22", "Tubb4b", "Tmed10", "Hmgb2", "Gng5", "Smdt1", "Atp5c1", "Laptm4a", "Spcs2", "Edf1", "Ctdspl", "Eef1a1", "Eif4a1", "Mpc2", "Crip1", "Slc25a3", "Rpl37", "Rps8", "Ubl5", "Rpl38", "Gnb1", "Rpl28", "Ndufb9", "Gnb2", "LOC102636299", "Cyba", "Qk", "Eif3f", "Rpl30", "Dad1", "Eef2", "Esd", "Pcna", "Pfn1", "Ndufa5", "Hsp90b1", "Actn4", "Uqcrq", "Tuba1a", "Ndufa3", "Cnn2", "Tmem256", "Galnt18", "Ndufb7", "Uqcr10", "Snrpe", "Cux1", "Ndufb8", "Sptbn1", "Atp5g3", "Arf5", "Ndufa8", "Hnrnpa3", "Rpl37rt", "Selenow", "Ndufa1", "Psap", "Prdx5", "Rps9", "Ost4", "Atp5o", "Atp6v0d1", "Selenoh", "Clta", "Reep5", "Mrfap1", "Ndufb5", "Pon2", "Hypk", "Pomp", "Sox4", "Mrps21", "Ssr4", "Dctn3", "Tpm3", "Rpl17", "Fdx1", "Rps15a-ps6", "Aldoa", "Hsbp1", "Ndufb2", "Cox7b", "Fermt2", "Serbp1", "Acaa2", "Psmb2", "Nedd8", "Morf4l1", "Uqcrh", "Ndufc1", "Cdk4", "Hnrnpk", "Abcg1", "Ppp2cb", "Cycs", "Vdac2", "Ndufa2", "Tjp1", "Fis1", "Ran", "Cavin1", "Cdc42", "Aprt", "Eif3h", "Romo1", "Atp6v1f", "Ywhah", "Snrpd2", "Cfl1", "Tma7", "Slc39a1", "Nme1", "Cbx3", "Rbx1", "Micos10", "Ndufb11", "Rtraf", "Krtcap2", "Ubc", "Ifi27", "Ostc", "Alyref", "Mlf2", "Arhgap5", "Rab5if", "Dynlrb1", "Svil", "Lamtor2", "Tbca", "Snrpg", "Ctnna1", "Psma7", "Dpysl2", "Psmb1", "Fkbp1a", "1810058I24Rik", "Itm2c", "Hdgf", "Plp2", "Hadha", "Ndufs6", "Hmgn2", "Capns1", "D8Ertd738e", "Tpm4", "Gm9385", "Swi5", "Pdcd5", "Pebp1", "Anp32a", "Mpc1", "Tomm20", "Atp6v0e", "Erh", "Itm2b", "Mif", "Arpp19", "Psma2", "Cox17", "Psmb3", "Tmed2", "Skp1a", "Ywhaq", "Vcp", "Spcs1", "Kdelr2", "Psmd8", "Ube2d3", "Hnrnpa0", "Ndufa11", "Pkm", "Dync1i2", "Emd", "Psmb5", "Bzw1", "Tmem258", "Hnrnpm", "Rhob", "Hnrnpd", "Selenok", "Alas2", "Alas2", "Igfbp5", "Ube2c", "Gpc3", "Bpgm", "Bpgm", "Bpgm", "Bnip3l"))
+
+```
+```{r "Look at the sd7 condition markers and filter to pull out at2, sasp, 1c"}
+
+
+#look at condition markers and pull out markers for SD7, then compre to AT2 markers, SASP genes, and 1C genes.
+SD7_markers_sasp <- dplyr::filter(SD7_markers, gene %in% features_list )
+SD7_markers_onecarbon <- dplyr::filter(SD7_markers, gene %in% onecarbon_genes_fixed)
+SD7_markers_at2 <- dplyr::filter(SD7_markers, gene %in% AT2_markers)
+
+#write.xlsx(SD7_markers, file = '/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/Dennery_scRNA/scRNAseq/SD7_markers.xlsx', row.names = F)
+#write.xlsx(SD7_markers_sasp, file = '/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/Dennery_scRNA/scRNAseq/SD7_markers_sasp.xlsx', row.names = F)
+#write.xlsx(SD7_markers_onecarbon , file = '/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/Dennery_scRNA/scRNAseq/SD7_markers_onecabon.xlsx', row.names = F)
+#write.xlsx(SD7_markers_at2 , file = '/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/Dennery_scRNA/scRNAseq/SD7_markers_at2.xlsx', row.names = F)
+
+#what about filtering from the sd7 vs o2d7 contrasts and other pairwise contrasts:
+
+sd7_vs_o2d7_markers_sasp <- dplyr::filter(sd7_vs_o2d7, gene %in% features_list )
+sd7_vs_o2d7_markers_onecarbon <- dplyr::filter(sd7_vs_o2d7, gene %in% onecarbon_genes_fixed)
+sd7_vs_o2d7_markers_at2 <- dplyr::filter(sd7_vs_o2d7, gene %in% AT2_markers)
+
+#write.xlsx(sd7_vs_o2d7_markers_sasp, file = '/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/Dennery_scRNA/scRNAseq/sd7_vs_o2d7_markers_sasp.xlsx', row.names = F)
+#write.xlsx(sd7_vs_o2d7_markers_onecarbon , file = '/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/Dennery_scRNA/scRNAseq/sd7_vs_o2d7_markers_onecabon.xlsx', row.names = F)
+#write.xlsx(sd7_vs_o2d7_markers_at2 , file = '/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/Dennery_scRNA/scRNAseq/sd7_vs_o2d7_markers_at2.xlsx', row.names = F)
+
+#write.xlsx(sd7_vs_o2d7 , file = '/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/Dennery_scRNA/scRNAseq/sd7_vs_o2d7.xlsx', row.names = F)
+
+
+
+sd7_vs_aird7_markers_sasp <- dplyr::filter(sd7_vs_aird7, gene %in% features_list )
+sd7_vs_aird7_markers_onecarbon <- dplyr::filter(sd7_vs_aird7, gene %in% onecarbon_genes_fixed)
+sd7_vs_aird7_markers_at2 <- dplyr::filter(sd7_vs_aird7, gene %in% AT2_markers)
+
+write.xlsx(sd7_vs_aird7_markers_sasp, file = '/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/Dennery_scRNA/scRNAseq/sd7_vs_aird7_markers_sasp.xlsx', row.names = F)
+write.xlsx(sd7_vs_aird7_markers_onecarbon , file = '/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/Dennery_scRNA/scRNAseq/sd7_vs_aird7_markers_onecabon.xlsx', row.names = F)
+write.xlsx(sd7_vs_aird7_markers_at2 , file = '/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/Dennery_scRNA/scRNAseq/sd7_vs_aird7_markers_at2.xlsx', row.names = F)
+
+write.xlsx(sd7_vs_aird7 , file = '/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/Dennery_scRNA/scRNAseq/sd7_vs_aird7.xlsx', row.names = F)
+
+
+
+o2d_vs_aird7_markers_sasp <- dplyr::filter(o2d_vs_aird7, gene %in% features_list )
+o2d_vs_aird7_markers_onecarbon <- dplyr::filter(o2d_vs_aird7, gene %in% onecarbon_genes_fixed)
+o2d_vs_aird7_markers_at2 <- dplyr::filter(o2d_vs_aird7, gene %in% AT2_markers)
+
+write.xlsx(o2d_vs_aird7_markers_sasp, file = '/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/Dennery_scRNA/scRNAseq/o2d_vs_aird7_markers_sasp.xlsx', row.names = F)
+#write.xlsx(o2d_vs_aird7_markers_onecarbon , file = '/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/Dennery_scRNA/scRNAseq/o2d_vs_aird7_markers_onecabon.xlsx', row.names = F)
+write.xlsx(o2d_vs_aird7_markers_at2 , file = '/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/Dennery_scRNA/scRNAseq/o2d_vs_aird7_markers_at2.xlsx', row.names = F)
+
+write.xlsx(o2d_vs_aird7 , file = '/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/Dennery_scRNA/scRNAseq/o2d_vs_aird7.xlsx', row.names = F)
+```
+
+
+ 
+```{r "What's going on w the seurat cluster comparisons only in SD7 data?"}
+
+
+SD7_cluster_markers
 
 # Add the gene information to each cluster..
-SD7_seurat.markers <- left_join(SD7_seurat.markers, all_genes_bm, by = c('gene' = 'mgi_symbol'))
-
-#get distinct markers
-SD7_seurat.markers_distinct <- distinct(SD7_seurat.markers, gene, .keep_all = T)
-
-#all_data.combined <- readRDS("all_data.combined_sept_2021.rds")
-#SD7_seurat.markers <- readRDS("SD7_seurat.markers.rds")
-#SD7_seurat <- readRDS("SD7_seurat.rds")
+SD7_cluster_markers <- left_join(SD7_cluster_markers, all_genes_bm, by = c('gene' = 'mgi_symbol'))
 
 #split up the markers by cluster..
-cluster_levels <- unique(SD7_seurat.markers_distinct$cluster) 
-SD7_seurat.markers.split <- lapply(seq_along(cluster_levels), function(i) SD7_seurat.markers_distinct %>% dplyr::filter(cluster == cluster_levels[i]))
+cluster_levels <- unique(SD7_cluster_markers$cluster) 
+SD7_cluster_markers.split <- lapply(seq_along(cluster_levels), function(i) SD7_cluster_markers %>% dplyr::filter(cluster == cluster_levels[i]))
+
+#write.xlsx(SD7_cluster_markers, file = '/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/Dennery_scRNA/scRNAseq/SD7_cluster_markers.xlsx', row.names = F)
+
+```
+
+```{r "what about phagocytosis markers or AT2 markers only in SD7"}
 
 
-#install.packages("writexl")
-library(writexl)
+SD7_cluster_markers_sasp <- dplyr::filter(SD7_cluster_markers, gene %in% features_list )
 
-sheet_names <- c(paste0('cluster', '_', cluster_levels))
+SD7_cluster_markers_at2 <- dplyr::filter(SD7_cluster_markers, gene %in% AT2_markers)
 
-names(SD7_seurat.markers.split) <- paste0('seurat_', unique(top5_markers$cluster))
+SD7_cluster_markers_phagocytosis <- SD7_cluster_markers %>% dplyr::filter(grepl('R-MMU-2029480', reactome_ids) | grepl('R-MMU-2029485', reactome_ids) | grepl('R-MMU-2029482', reactome_ids) | grepl('R-MMU-8941413', reactome_ids)) 
 
-write_xlsx(SD7_seurat.markers.split, "markers_per_cluster_SD7.xlsx")
+
+write.xlsx(SD7_cluster_markers_sasp, file = '/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/Dennery_scRNA/scRNAseq/SD7_cluster_markers_sasp.xlsx', row.names = F)
+
+write.xlsx(SD7_cluster_markers_at2, file = '/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/Dennery_scRNA/scRNAseq/SD7_cluster_markers_at2.xlsx', row.names = F)
+
+write.xlsx(SD7_cluster_markers_phagocytosis, file = '/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/Dennery_scRNA/scRNAseq/SD7_cluster_markers_phagocytosis.xlsx', row.names = F)
+```
+
+
+```{r "Look at the SASP genes in only sd7}
+
+all_data.combined@meta.data$grouped_seurat <- paste0(all_data.combined@meta.data$atlas_predicted_clusters_grouped, "-", all_data.combined@meta.data$seurat_clusters)
+
+Idents(all_data.combined) <- 'atlas_predicted_clusters_grouped'
+
+sd7_cluster_markers_sasp_dotplot <- DotPlot(subset(all_data.combined, subset = orig.ident == 'SD7'), assay = 'SCT',features = features_list ) & 
+  ggplot2::theme(axis.title = element_blank(), axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), axis.text=element_text(size=20), legend.text=element_text(size=20), legend.title=element_text(size=20)) & 
+  coord_flip() & 
+  scale_colour_gradient2(low = "blue", high = "red", midpoint = 0) &
+  guides(color = guide_colorbar(title = 'Average Expression'))
+
+ggsave('/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/Dennery_scRNA/scRNAseq/sd7_cluster_markers_sasp_dotplot.png', plot = sd7_cluster_markers_sasp_dotplot, width = 12, height = 18)
+
+Idents(all_data.combined) <- 'seurat_clusters'
+library(RColorBrewer)
+
+sd7_cluster_markers_sasp_dotplot_macrophages <-  DotPlot(subset(all_data.combined, subset = orig.ident == 'SD7' & atlas_predicted_clusters_grouped == 'Macrophages'), assay = 'SCT',features = features_list ) & 
+  ggplot2::theme(axis.title = element_blank(), axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), axis.text=element_text(size=20), legend.text=element_text(size=20), legend.title=element_text(size=20)) &
+  coord_flip() & 
+  scale_colour_gradient2(low = "blue", high = "red", midpoint = 0) &
+  guides(color = guide_colorbar(title = 'Average Expression'))
+    
+
+ggsave('/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/Dennery_scRNA/scRNAseq/sd7_cluster_markers_sasp_dotplot_macrophages.png', plot = sd7_cluster_markers_sasp_dotplot_macrophages, width = 12, height = 18)
+
+
+
+Idents(all_data.combined) <- 'orig.ident'
+
+
+types_dotplot_ident <-  DotPlot(
+  subset(all_data.combined, subset = (orig.ident == 'SD7' | orig.ident == 'O2D7' | orig.ident == 'AirD7')), assay = 'SCT',features = features_list) & ggplot2::theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) & 
+  coord_flip()& 
+  theme(axis.text=element_text(size=20))&
+  scale_colour_gradient2(low = "blue", high = "red", midpoint = 0) &
+  guides(color = guide_colorbar(title = 'Average Expression'))
+
+ggsave('/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/Dennery_scRNA/scRNAseq/types_dotplot_ident.png', plot = types_dotplot_ident , width = 12, height = 18)
+```
+
+
+
+
+
+
+
+DoHeatmap(subset(all_data.combined, subset = orig.ident == 'SD7'), assay = 'SCT',features = features_list )
+
+macros <- sort(unique(all_data.combined@meta.data$grouped_seurat) %>% grep("Macrophages", ., value = TRUE))
+at1 <- sort(unique(all_data.combined@meta.data$grouped_seurat) %>% grep("AT1", ., value = TRUE))
+at2 <- sort(unique(all_data.combined@meta.data$grouped_seurat) %>% grep("AT2", ., value = TRUE))
+endo <- sort(unique(all_data.combined@meta.data$grouped_seurat) %>% grep("Endo", ., value = TRUE))
+mesen <- sort(unique(all_data.combined@meta.data$grouped_seurat) %>% grep("Mesenchymal", ., value = TRUE))
+oth_immune <- sort(unique(all_data.combined@meta.data$grouped_seurat) %>% grep("Other immune cells", ., value = TRUE))
+oth_epi <- sort(unique(all_data.combined@meta.data$grouped_seurat) %>% grep("Other epithelial cells", ., value = TRUE))
+
+mca_seur_levels <- c(macros, at2, at1, mesen, endo, oth_epi, oth_immune)
+
+all_data.combined@meta.data$grouped_seurat <- factor(all_data.combined@meta.data$grouped_seurat, levels = mca_seur_levels)
+Idents(all_data.combined) <- 'seurat_clusters'
+
+DotPlot(subset(all_data.combined, subset = orig.ident == 'SD7'), assay = 'SCT',features = features_list ) & ggplot2::theme(axis.title = element_blank(), axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), axis.text=element_text(size=20), legend.text=element_text(size=20), legend.title=element_text(size=20)) & coord_flip()
+
+
+table(all_data.combined$seurat_clusters, all_data.combined$atlas_predicted_clusters_grouped)
+
+
+Idents(all_data.combined) <- 'orig.ident'
+
+orig_ident_sasp_dotplot <- DotPlot(
+  subset(all_data.combined, subset = (orig.ident == 'SD7' | orig.ident == 'AirD7' | orig.ident == 'O2D7')), assay = 'SCT',features = features_list ) & ggplot2::theme(axis.title = element_blank(), axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), axis.text=element_text(size=20), legend.text=element_text(size=20), legend.title=element_text(size=20)) & coord_flip() & guides(colour = guide_legend(nrow = 2))
+
+ggsave('/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/Dennery_scRNA/scRNAseq/orig_ident_sasp_dotplot.png', plot = orig_ident_sasp_dotplot, width = 6, height = 12, dpi = 500)
+```
+
+```{r}
+#which genes are unique markers for particular clusters?
+table(SD7_cluster_markers_sasp$gene)
+unique_sd7_sasp_genes <- c('Cdkn2c', 'Cdkn3', 'Cxcl1', 'Il1a', 'Il1b', 'Mmp11', 'Mmp23', 'Mmp8', 'Tnfsf14', 'Tnfsf9','Trp53i11')
+
+SD7_cluster_markers_sasp_unique <- dplyr::filter(SD7_cluster_markers_sasp, gene %in% unique_sd7_sasp_genes )
+
+write.xlsx(SD7_cluster_markers_sasp_unique, file = '/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/Dennery_scRNA/scRNAseq/SD7_cluster_markers_sasp_unique.xlsx', row.names = F)
+
+```
+```{r}
+at2_marker_freqs <- data.frame(table(SD7_cluster_markers_at2$gene))
+at2_marker_unique <- at2_marker_freqs %>% dplyr::filter(Freq == 1)
+at2_marker_unique <- at2_marker_unique$Var1
+
+SD7_cluster_markers_at2_unique <- dplyr::filter(SD7_cluster_markers_at2, gene %in% at2_marker_unique)
+write.xlsx(SD7_cluster_markers_at2_unique, file = '/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/Dennery_scRNA/scRNAseq/SD7_cluster_markers_at2_unique.xlsx', row.names = F)
+
+```
+
+
+
+
+
+cluster_markers_split <- lapply(seq_along(cluster_levels), function(i) cluster_markers_ids %>% dplyr::filter(cluster == cluster_levels[i]))
+
+cluster_levels <- levels(cluster_markers_ids$cluster)
+cluster_markers_split <- lapply(seq_along(cluster_levels), function(i) cluster_markers_ids %>% dplyr::filter(cluster == cluster_levels[i]))
+#names(cluster_markers_split) <- paste0('cluster_', cluster_levels, '_markers')
+
 
 #doing some filtering to look at just the 'top markers', but probably want to only use these for making figures.
 top5_markers <- SD7_seurat.markers_distinct  %>% group_by(cluster) %>% top_n(n = 5, wt = avg_logFC)
@@ -486,20 +823,64 @@ top5_markers.split <- lapply(seq_along(unique(top5_markers$cluster)), function(i
   
 marker_dotplots <- lapply(seq_along(top5_markers.split), function(i) DotPlot(SD7_seurat, features = c((top5_markers.split[[i]])$gene)) & labs(title = paste0('seurat_', (top5_markers.split[[i]])$cluster)))
 
-```
-```{r}
+
 (marker_dotplots[[1]] + marker_dotplots[[2]] + marker_dotplots[[3]]) / (marker_dotplots[[4]] + marker_dotplots[[5]] + marker_dotplots[[6]]) 
+
+
+
+
+SD7_cluster_markers_at2 %>% dplyr::filter(cluster == '17')
 ```
 
 
-```{r}
-ggsave(filename = 'marker_dotplots.png', width = 30, height = 30, device = 'png', plot = (marker_dotplots[[1]] + marker_dotplots[[2]] + marker_dotplots[[3]] + marker_dotplots[[4]] + marker_dotplots[[5]] + marker_dotplots[[6]] + marker_dotplots[[7]] + marker_dotplots[[8]] + marker_dotplots[[9]] + marker_dotplots[[10]] + 
-marker_dotplots[[11]] + marker_dotplots[[12]] + marker_dotplots[[13]] + marker_dotplots[[14]] + marker_dotplots[[15]] + marker_dotplots[[16]] + marker_dotplots[[17]] + marker_dotplots[[18]] + marker_dotplots[[19]] + marker_dotplots[[20]] + marker_dotplots[[21]] + marker_dotplots[[22]]))
+
+Idents(all_data.combined) <- 'atlas_predicted_clusters_short'
+
+types_dotplot_sub_phagocytosis <-  DotPlot(subset(all_data.combined, subset = orig.ident == 'SD7'), assay = 'SCT',features = unique(SD7_seurat.markers_phagocytosis$gene) ) & ggplot2::theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) & coord_flip() & theme(axis.text=element_text(size=20), legend.text=element_text(size=20), axis.title = element_blank())
+
+ggsave('/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/Dennery_scRNA/scRNAseq/types_dotplot_sub_phagocytosis.png', plot = types_dotplot_sub_phagocytosis, width = 14, height = 18)
+
+Idents(all_data.combined) <- 'seurat_clusters'
+
+AT2_markers <- unique(c("Abhd5", "Acaa1a", "Adgrf5", "Aig1", "Arhgap44", "Atf3", "Atp13a3", "Bmp4", "Bnip3", "Ccz1", "Cdh16", "Cds1", "Cftr", "Clu", "Cndp2", "Col6a1", "Cracr2a", "Cyp51", "Dhcr24", "Dpp9", "Echs1", "Eif3b", "Epb41l5", "Erbb3", "Fam126b", "Fdft1", "Fgf1", "Foxp2", "Gata6", "Gsta4", "Hadh", "Hdc", "Higd1a", "Hmgcr", "Igsf3", "Il18r1", "Irs2", "Itih4", "Junos", "Kcne2", "Kcnj13", "Kcnj2", "Klf9", "LOC115487124", "Lratd2", "Maged1", "Malat1", "Mob3b", "Mrps9", "Myh7", "Nedd4l", "P4ha1", "Paqr8", "Pard3", "Pcnt", "Pcyt2", "Pls3", "Plxnb1", "Pof1b", "Ppp1r16a", "Rac3", "Rbms3", "Rn7sk", "Serpinb9", "Sgpp2", "Sh3d19", "Slc16a7", "Slc25a39", "Sowahc", "Spint1", "Spr", "Spred1", "Sqle", "Srebf2", "Steap2", "Syt7", "Tbc1d30", "Tcea3", "Tkt", "Tmc4", "Tmem205", "Tmem8", "Tmprss4", "Trim2", "Trp53inp2", "Trpm6", "Ttc38", "Txnrd3", "Usp33", "Vsig2","Rtkn2", "Spock2", "Col4a3", "2200002D01Rik", "Sema3e", "Lamc2", "Scnn1g", "Marco", "Itgb6", "Lama3", "Ccl6", "Igfbp7", "Fth1", "Fbln5", "Krt19", "Sec14l3", "Cd9", "Ano1", "Lpl", "Cryab", "F3", "Tmsb4x", "Vegfa", "Clic5", "S100a11", "Anxa2", "Top2a", "Myl6", "Col4a1", "Actb", "Hs2st1", "Agrn", "Ear2", "Plet1", "Fam174b", "Atp6v0d2", "Fzd2", "Nnat", "Pclaf", "Hspg2", "Rpl36al", "Mest", "Rps27a", "Ctsd", "Cstb", "Akr1a1", "Col4a2", "Calm1", "Fads3", "Plin2", "Tspan15", "Ndufa4", "Ndufb1-ps", "Rpl19", "Aqp1", "Rpl26", "Rpl11", "Ywhae", "Cox4i1", "Sem1", "Anxa5", "Fam189a2", "Uqcrb", "Eif1", "Rps20", "Rpl35", "Calm2", "Ftl1", "Ndst1", "Atp5l", "Cox8a", "Col4a5", "H3f3b", "Serpinh1", "Btf3", "Serf2", "Rpl34", "Tmsb10", "Itgb1", "Cox5b", "Tagln2", "Rpl13", "Rpl14", "Rpl22l1", "Rpl36", "Hsp90ab1", "Trp53bp2", "Myl12b", "Atp5j", "Rab11fip1", "Ctsb", "Lamp1", "Ptov1", "Rps4x", "Rpl22", "Atp5pb", "Ctsz", "Rps13", "Ehd2", "Rpl35a", "Hspa8", "Rps24", "S100a1", "Rps3a1", "Lrpap1", "Drap1", "Rhoa", "Pdia3", "Ndufa13", "Atp5md", "Cd81", "Cox5a", "F11r", "Rpl7", "Cttnbp2nl", "Mrpl14", "Eif2s2", "Ybx1", "1810037I17Rik", "Arf1", "Rpl37a", "Rps23", "Tppp3", "Tmem176b", "Atp5mpl", "Rpl18", "Lamc1", "Rpl36a", "Atp5b", "Npm1", "Ahnak", "Tomm6", "Rpl27", "Rpl9", "Anxa1", "Rpl23", "Rpl8", "Mmp14", "Car2", "Car2", "Rps3", "Canx", "Rps15a", "Xist", "Paip1", "Atp5g1", "Rpl27a", "Tomm7", "Uba52", "Rps27l", "Myof", "H3f3a", "Hspa5", "Slc25a4", "Pmp22", "Tubb4b", "Tmed10", "Hmgb2", "Gng5", "Smdt1", "Atp5c1", "Laptm4a", "Spcs2", "Edf1", "Ctdspl", "Eef1a1", "Eif4a1", "Mpc2", "Crip1", "Slc25a3", "Rpl37", "Rps8", "Ubl5", "Rpl38", "Gnb1", "Rpl28", "Ndufb9", "Gnb2", "LOC102636299", "Cyba", "Qk", "Eif3f", "Rpl30", "Dad1", "Eef2", "Esd", "Pcna", "Pfn1", "Ndufa5", "Hsp90b1", "Actn4", "Uqcrq", "Tuba1a", "Ndufa3", "Cnn2", "Tmem256", "Galnt18", "Ndufb7", "Uqcr10", "Snrpe", "Cux1", "Ndufb8", "Sptbn1", "Atp5g3", "Arf5", "Ndufa8", "Hnrnpa3", "Rpl37rt", "Selenow", "Ndufa1", "Psap", "Prdx5", "Rps9", "Ost4", "Atp5o", "Atp6v0d1", "Selenoh", "Clta", "Reep5", "Mrfap1", "Ndufb5", "Pon2", "Hypk", "Pomp", "Sox4", "Mrps21", "Ssr4", "Dctn3", "Tpm3", "Rpl17", "Fdx1", "Rps15a-ps6", "Aldoa", "Hsbp1", "Ndufb2", "Cox7b", "Fermt2", "Serbp1", "Acaa2", "Psmb2", "Nedd8", "Morf4l1", "Uqcrh", "Ndufc1", "Cdk4", "Hnrnpk", "Abcg1", "Ppp2cb", "Cycs", "Vdac2", "Ndufa2", "Tjp1", "Fis1", "Ran", "Cavin1", "Cdc42", "Aprt", "Eif3h", "Romo1", "Atp6v1f", "Ywhah", "Snrpd2", "Cfl1", "Tma7", "Slc39a1", "Nme1", "Cbx3", "Rbx1", "Micos10", "Ndufb11", "Rtraf", "Krtcap2", "Ubc", "Ifi27", "Ostc", "Alyref", "Mlf2", "Arhgap5", "Rab5if", "Dynlrb1", "Svil", "Lamtor2", "Tbca", "Snrpg", "Ctnna1", "Psma7", "Dpysl2", "Psmb1", "Fkbp1a", "1810058I24Rik", "Itm2c", "Hdgf", "Plp2", "Hadha", "Ndufs6", "Hmgn2", "Capns1", "D8Ertd738e", "Tpm4", "Gm9385", "Swi5", "Pdcd5", "Pebp1", "Anp32a", "Mpc1", "Tomm20", "Atp6v0e", "Erh", "Itm2b", "Mif", "Arpp19", "Psma2", "Cox17", "Psmb3", "Tmed2", "Skp1a", "Ywhaq", "Vcp", "Spcs1", "Kdelr2", "Psmd8", "Ube2d3", "Hnrnpa0", "Ndufa11", "Pkm", "Dync1i2", "Emd", "Psmb5", "Bzw1", "Tmem258", "Hnrnpm", "Rhob", "Hnrnpd", "Selenok", "Alas2", "Alas2", "Igfbp5", "Ube2c", "Gpc3", "Bpgm", "Bpgm", "Bpgm", "Bnip3l"))
+
+SD7_seurat.markers_at2 <- dplyr::filter( SD7_seurat.markers, gene %in% AT2_markers)
+
+write.xlsx(SD7_seurat.markers_at2, file = '/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/Dennery_scRNA/scRNAseq/SD7_cluster_markers_at2.xlsx', row.names = F)
+
+SD7_seurat.markers_at2$gene
+
+Idents(all_data.combined) <- 'atlas_predicted_clusters_short'
+
+types_dotplot_sub_at2 <-  DotPlot(subset(all_data.combined, subset = orig.ident == 'SD7'), assay = 'SCT',features = unique(SD7_seurat.markers_at2$gene) ) & ggplot2::theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) & coord_flip() & theme(axis.text=element_text(size=20), legend.text=element_text(size=20), axis.title = element_blank())
+
+ggsave('/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/Dennery_scRNA/scRNAseq/types_dotplot_sub_at2.png', plot = types_dotplot_sub_at2, width = 14, height = 18)
+
 ```
 
-
-
 ```{r}
+#install.packages("writexl")
+library(xlsx)
+
+sheet_names <- c(paste0('cluster', '_', cluster_levels))
+
+names(SD7_seurat.markers.split) <- paste0('seurat_', unique(top5_markers$cluster))
+
+write.xlsx(SD7_seurat.markers.split, "/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/Dennery_scRNA/scRNAseq/markers_per_cluster_SD7.xlsx")
+
+#doing some filtering to look at just the 'top markers', but probably want to only use these for making figures.
+top5_markers <- SD7_seurat.markers_distinct  %>% group_by(cluster) %>% top_n(n = 5, wt = avg_logFC)
+
+top5_markers.split <- lapply(seq_along(unique(top5_markers$cluster)), function(i) top5_markers %>% dplyr::filter(cluster == unique(top5_markers$cluster)[i]))
+  
+marker_dotplots <- lapply(seq_along(top5_markers.split), function(i) DotPlot(SD7_seurat, features = c((top5_markers.split[[i]])$gene)) & labs(title = paste0('seurat_', (top5_markers.split[[i]])$cluster)))
+
+
+(marker_dotplots[[1]] + marker_dotplots[[2]] + marker_dotplots[[3]]) / (marker_dotplots[[4]] + marker_dotplots[[5]] + marker_dotplots[[6]]) 
+
+#ggsave(filename = 'marker_dotplots.png', width = 30, height = 30, device = 'png', plot = (marker_dotplots[[1]] + marker_dotplots[[2]] + marker_dotplots[[3]] + marker_dotplots[[4]] + marker_dotplots[[5]] + marker_dotplots[[6]] + marker_dotplots[[7]] + marker_dotplots[[8]] + marker_dotplots[[9]] + marker_dotplots[[10]] + 
+#marker_dotplots[[11]] + marker_dotplots[[12]] + marker_dotplots[[13]] + marker_dotplots[[14]] + marker_dotplots[[15]] + marker_dotplots[[16]] + marker_dotplots[[17]] + marker_dotplots[[18]] + marker_dotplots[[19]] + marker_dotplots[[20]] + marker_dotplots[[21]] + marker_dotplots[[22]]))
+
 
 DefaultAssay(SD7_seurat) <- 'SCT'
 
@@ -562,8 +943,6 @@ marker_dotplots <-  DotPlot(SD7_seurat, features = top5_markers$gene, group.by =
   geom_hline(yintercept = 33.5)
 
 
-
-
 #Results are saved in a new assay (named SCT by default) with counts being (corrected) counts, data being log1p(counts), scale.data being pearson residuals; sctransform::vst intermediate results are saved in misc slot of new assay. 
 
 FeaturePlot(SD7_seurat, 
@@ -586,7 +965,7 @@ DotPlot(SD7_seurat,
   coord_flip()
 ```
 
-```{r Table comparing the numbers of cells in each combination of seurat cluster and cell type annotation}
+```{r "Table comparing the numbers of cells in each combination of seurat cluster and cell type annotation"}
 cell_types_per_cluster_df  <- data.frame(atlas = SD7_seurat$atlas_predicted_clusters_short, seurat = SD7_seurat$seurat_clusters)
 cell_types_per_cluster <- as.data.frame(table(cell_types_per_cluster_df$atlas, cell_types_per_cluster_df$seurat))
 cell_types_per_cluster$atlas <- cell_types_per_cluster$Var1
@@ -616,7 +995,8 @@ cell_types_per_cluster_plot <- ggplot(cell_types_per_cluster, aes(x = atlas, y =
         axis.ticks = element_blank(),
         text = element_text(size=20)) 
 ```
-```{r Table of how many cells in each cell type category}
+
+```{r "Table of how many cells in each cell type category"}
 cell_types_freq_df <- data.frame(ident = SD7_seurat$orig.ident, atlas = SD7_seurat$atlas_predicted_clusters_short)
 cell_types_freq <- as.data.frame(table(cell_types_freq_df$ident, cell_types_freq_df$atlas))
 cell_types_freq$atlas <- cell_types_freq$Var2
@@ -650,7 +1030,8 @@ cell_types_freq_plot <- ggplot(cell_types_freq, aes(x = ident, y = atlas, fill =
         text = element_text(size=20))
 
 ```
-```{r Table of how many cells are in each seurat cluster}
+
+```{r "Table of how many cells are in each seurat cluster"}
 clusters_freq_df <- data.frame(ident = SD7_seurat$orig.ident, seurat = SD7_seurat$seurat_clusters)
 clusters_freq <- as.data.frame(table(clusters_freq_df$ident, clusters_freq_df$seurat))
 clusters_freq$seurat <- clusters_freq$Var2
@@ -659,32 +1040,94 @@ clusters_freq$Var2 <- NULL
 clusters_freq <- clusters_freq %>% arrange(desc(Freq))
 clusters_freq$Number_of_cells <- clusters_freq$Freq
 #write.csv(clusters_freq, 'clusters_freq.csv', row.names= F)
-```
+
+#Are there amy mesenchymal cells in the SD7?
+
+cell_types_freq_df <- data.frame(ident = all_data.combined$orig.ident, atlas = all_data.combined$atlas_predicted_clusters_short)
+cell_types_freq <- as.data.frame(table(cell_types_freq_df$ident, cell_types_freq_df$atlas))
+cell_types_freq$atlas <- cell_types_freq$Var2
+cell_types_freq$Var2 <- NULL
+cell_types_freq$ident <- cell_types_freq$Var1
+cell_types_freq$Var1 <- NULL
+
+cell_types_freq <- cell_types_freq %>% arrange(desc(Freq))
+cell_types_freq <- cell_types_freq %>% filter(Freq > 0)
 
 
-```{r}
+cell_types_freq$number_of_cells <- cell_types_freq$Freq
+cell_types_freq$Freq <- NULL
+
+cell_types_freq_plot <- ggplot(cell_types_freq, aes(x = ident, y = atlas, fill = number_of_cells)) +
+  coord_equal()+
+  geom_tile(colour = 'black') + 
+  xlab('Ident') +
+  ylab('Cell state') +
+  theme(panel.grid = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks = element_blank()) +
+  scale_fill_gradientn(
+    colors = c("white", "red"),
+    limits = range(cell_types_freq$number_of_cells)) +
+  geom_text(aes(label = number_of_cells)) +
+  theme(panel.grid = element_blank(),
+        axis.text.x=element_text(angle=90, hjust = 1, vjust = .4),
+        axis.ticks = element_blank(),
+        text = element_text(size=20))
+        cell_types_freq_plot
+
+
+cell_types_freq_plot        
 
 
 
+cell_types_freq_plot_sd7 <- ggplot(cell_types_freq %>% dplyr::filter(ident == 'SD7'), 
+aes(x = ident, y = atlas, fill = number_of_cells)) +
+  coord_equal()+
+  geom_tile(colour = 'black') + 
+  xlab('Ident') +
+  ylab('Cell state') +
+  theme(panel.grid = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks = element_blank()) +
+  scale_fill_gradientn(
+    colors = c("white", "red"),
+    limits = range(
+    (
+    cell_types_freq %>% dplyr::filter(ident == 'SD7')
+    )$number_of_cells)) +
+  geom_text(aes(label = number_of_cells)) +
+  theme(panel.grid = element_blank(),
+        axis.text.x=element_text(angle=90, hjust = 1, vjust = .4),
+        axis.ticks = element_blank(),
+        text = element_text(size=20))
 
-ggsave('cell_types_per_cluster_plot.png', device = 'png')
+cell_types_freq_plot_sd7
+
+
+#ggsave('/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/Dennery_scRNA/scRNAseq/cell_types_freq_plot.png', plot = cell_types_freq_plot, width = 14, height = 14)
+
+#ggsave('/gpfs/data/cbc/Dennery_scRNAseq/scRNAseq/Dennery_scRNA/scRNAseq/cell_types_freq_plot_sd7_only.png', plot = cell_types_freq_plot_sd7, width = 14, height = 14)
+
+#ggsave('cell_types_per_cluster_plot.png', device = 'png')
 #ggsave(plot = conc_plot2, file = 'figure2b1.png', width = 10, height = 15, units = 'in')
 
 ```
 
 
 
+```{r}
+#all_genes <- data.frame(rownames(all_data.combined)) %>% rename(rownames.all_data.combined. = "mgi_symbol")
+mouse_biomart <- useMart("ensembl", dataset = "mmusculus_gene_ensembl")
+
+mouse_biomart_data <- getBM(mart = mouse_biomart, attributes=c("mgi_description","mgi_symbol", "kegg_enzyme", "name_1006"))
 
 
-
-
-
-
-
-
-
-
+all_genes_bm <- right_join(mouse_biomart_data, all_genes)
 ```
+
+
+
+
 
 
 # AT1, AT2, and B cells are in similar clusters (does that make sense? are they similar cell types?)
@@ -753,6 +1196,7 @@ count_plot_mca <- ggplot(counts_per_annot_and_ident, aes(x = orig.ident, y = pre
 ```
 
 
+
 ```{r}
 #saveRDS(all_data.combined, file = "/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/all_data.combined.RDS")
 #all_data.combined <- readRDS(file = "/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/all_data.combined.RDS")
@@ -798,11 +1242,11 @@ all_data.combined.markers.sct <- left_join(all_data.combined.markers.sct, all_ge
 cluster_levels <- levels(all_data.combined.markers.sct$cluster)
 all_data.combined.markers.sct.split <- lapply(seq_along(cluster_levels), function(i) all_data.combined.markers.sct %>% dplyr::filter(cluster == cluster_levels[i]))
 
-#per_cluster_markers <- all_data.combined.markers.sct.split
+per_cluster_markers <- all_data.combined.markers.sct.split
 
 #saveRDS(per_cluster_markers, '/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/per_cluster_markers.Rds')
 
-per_cluster_markers <- readRDS('/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/per_cluster_markers.Rds')
+#per_cluster_markers <- readRDS('/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/per_cluster_markers.Rds')
 ```
 
 
@@ -851,9 +1295,9 @@ per_condition_markers_bind_sort <- per_condition_markers_bind %>% dplyr::arrange
 
 per_condition_markers_bind_sort <- dplyr::left_join(per_condition_markers_bind_sort, all_genes_bm, by = c('gene' = 'mgi_symbol'))
 
-write.csv(per_condition_markers_bind_sort, file = '/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/per_condition_markers_bind_sort.csv', row.names = F)
+#write.csv(per_condition_markers_bind_sort, file = '/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/per_condition_markers_bind_sort.csv', row.names = F)
 
-write.xlsx(per_condition_markers_bind_sort, file = '/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/per_condition_markers_bind_sort.xlsx', row.names = F)
+#write.xlsx(per_condition_markers_bind_sort, file = '/Users/jwalla12/Repositories/dennery_scrna/scRNAseq/per_condition_markers_bind_sort.xlsx', row.names = F)
 ```
 
 
@@ -867,8 +1311,7 @@ all_condition_markers <- FindAllMarkers(all_data.combined, min.pct = 0.25, logfc
 
 all_condition_markers_sort <- all_condition_markers %>% dplyr::arrange(factor(cluster, levels = c('O2D60','AirD60', 'O2D7', 'AirD7')))
 all_condition_markers_sort %>% dplyr::filter(cluster == 'O2D60')
------
-  
+
 Idents(all_data.combined) <- all_data.combined$seurat_clusters
   
 features <- c("Cftr", "Spock2", "Malat1", "Tkt", "Alas1")
